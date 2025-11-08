@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Squirrel Hold'em - Player</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .client-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .join-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .join-screen h1 {
+      font-size: 36px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .join-form {
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .game-screen {
+      display: none;
+      padding-top: 20px;
+    }
+
+    .my-cards {
+      margin: 30px 0;
+    }
+
+    .my-cards-title {
+      font-size: 24px;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .my-info {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    .my-chips {
+      font-size: 32px;
+      color: #ffd700;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    .bet-controls {
+      margin: 20px 0;
+    }
+
+    .bet-slider {
+      width: 100%;
+      margin: 15px 0;
+    }
+
+    .bet-amount-display {
+      font-size: 28px;
+      text-align: center;
+      color: #ffd700;
+      margin: 10px 0;
+    }
+
+    .waiting-message {
+      text-align: center;
+      font-size: 20px;
+      padding: 30px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 15px;
+      margin: 20px 0;
+    }
+
+    .community-preview {
+      margin: 20px 0;
+    }
+
+    .preview-title {
+      font-size: 18px;
+      text-align: center;
+      margin-bottom: 10px;
+      opacity: 0.8;
+    }
+
+    .quick-bet-buttons {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+      flex-wrap: wrap;
+    }
+
+    .quick-bet-buttons button {
+      flex: 1;
+      min-width: 80px;
+    }
+  </style>
+</head>
+<body>
+  <div class="client-container">
+    <!-- Join Screen -->
+    <div class="join-screen" id="joinScreen">
+      <h1>🐿️ SQUIRREL HOLD'EM 🃏</h1>
+      <div class="join-form">
+        <label for="playerName">Enter Your Name</label>
+        <input type="text" id="playerName" placeholder="Your Name" maxlength="20">
+        <button class="button button-success" onclick="joinGame()" style="width: 100%; margin-top: 20px;">
+          Join Game
+        </button>
+      </div>
+      <div id="joinMessage" style="margin-top: 20px; text-align: center;"></div>
+    </div>
+
+    <!-- Game Screen -->
+    <div class="game-screen" id="gameScreen">
+      <div class="my-info">
+        <h2 id="playerNameDisplay">Player</h2>
+        <div class="my-chips" id="myChips">$0</div>
+        <div id="myBet" style="font-size: 20px; color: #4CAF50;"></div>
+      </div>
+
+      <!-- Community Cards Preview -->
+      <div class="community-preview">
+        <div class="preview-title">Community Cards</div>
+        <div class="cards-container" id="communityCardsPreview"></div>
+        <div class="pot-label" style="margin-top: 15px;">Pot: <span id="potPreview" style="color: #ffd700; font-size: 24px;">$0</span></div>
+      </div>
+
+      <!-- My Cards -->
+      <div class="my-cards">
+        <div class="my-cards-title">Your Cards</div>
+        <div class="cards-container" id="myCards">
+          <div style="color: rgba(255,255,255,0.5);">Waiting for cards...</div>
+        </div>
+      </div>
+
+      <!-- Game State -->
+      <div class="game-state" id="clientGameState">WAITING</div>
+
+      <!-- Waiting Message -->
+      <div class="waiting-message" id="waitingMessage">
+        Waiting for your turn...
+      </div>
+
+      <!-- Action Buttons -->
+      <div id="actionSection" style="display: none;">
+        <div class="bet-controls" id="betControls" style="display: none;">
+          <label>Bet Amount</label>
+          <div class="quick-bet-buttons">
+            <button class="button" onclick="setQuickBet(0.5)">Half Pot</button>
+            <button class="button" onclick="setQuickBet(1)">Pot</button>
+            <button class="button" onclick="setQuickBet(2)">2x Pot</button>
+          </div>
+          <input type="range" id="betSlider" class="bet-slider" min="0" max="1000" value="0" oninput="updateBetDisplay()">
+          <div class="bet-amount-display" id="betAmountDisplay">$0</div>
+        </div>
+
+        <div class="action-buttons">
+          <button class="button button-danger" id="foldBtn" onclick="playerAction('fold')">
+            Fold
+          </button>
+          <button class="button button-warning" id="checkBtn" onclick="playerAction('check')" style="display: none;">
+            Check
+          </button>
+          <button class="button button-success" id="callBtn" onclick="playerAction('call')" style="display: none;">
+            Call $<span id="callAmount">0</span>
+          </button>
+          <button class="button button-success" id="betBtn" onclick="playerAction('bet')" style="display: none;">
+            Bet
+          </button>
+          <button class="button button-success" id="raiseBtn" onclick="playerAction('raise')" style="display: none;">
+            Raise
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="notification"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let mySocketId = null;
+    let myPlayerState = null;
+    let currentGameState = null;
+
+    function getSuitSymbol(suit) {
+      const symbols = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+      return symbols[suit] || suit;
+    }
+
+    function createCard(card) {
+      const cardDiv = document.createElement('div');
+      cardDiv.className = `card ${card.suit}`;
+
+      cardDiv.innerHTML = `
+        <div class="card-rank">${card.rank}</div>
+        <div class="card-suit">${getSuitSymbol(card.suit)}</div>
+        <div class="card-rank-bottom">${card.rank}</div>
+      `;
+
+      return cardDiv;
+    }
+
+    function createCardBack() {
+      const cardDiv = document.createElement('div');
+      cardDiv.className = 'card card-back';
+      cardDiv.textContent = '🐿️';
+      return cardDiv;
+    }
+
+    function joinGame() {
+      const nameInput = document.getElementById('playerName');
+      const name = nameInput.value.trim();
+
+      if (!name) {
+        showNotification('Please enter your name', 'error');
+        return;
+      }
+
+      socket.emit('joinGame', name);
+    }
+
+    function playerAction(action) {
+      let amount = 0;
+      if (action === 'bet' || action === 'raise') {
+        amount = parseInt(document.getElementById('betSlider').value);
+        if (amount <= 0) {
+          showNotification('Please select a bet amount', 'error');
+          return;
+        }
+      }
+
+      socket.emit('playerAction', { action, amount });
+    }
+
+    function updateBetDisplay() {
+      const slider = document.getElementById('betSlider');
+      const display = document.getElementById('betAmountDisplay');
+      display.textContent = `$${slider.value}`;
+    }
+
+    function setQuickBet(multiplier) {
+      if (!currentGameState) return;
+      const pot = currentGameState.pot;
+      const betAmount = Math.floor(pot * multiplier);
+      const slider = document.getElementById('betSlider');
+      slider.value = Math.min(betAmount, parseInt(slider.max));
+      updateBetDisplay();
+    }
+
+    function updateActionButtons() {
+      if (!myPlayerState || !currentGameState) return;
+
+      const isMyTurn = myPlayerState.isCurrentPlayer;
+      const actionSection = document.getElementById('actionSection');
+      const waitingMessage = document.getElementById('waitingMessage');
+
+      if (isMyTurn && !myPlayerState.folded) {
+        actionSection.style.display = 'block';
+        waitingMessage.style.display = 'none';
+
+        const canCheck = myPlayerState.bet >= currentGameState.currentBet;
+        const callAmount = currentGameState.currentBet - myPlayerState.bet;
+
+        document.getElementById('checkBtn').style.display = canCheck ? 'inline-block' : 'none';
+        document.getElementById('callBtn').style.display = !canCheck && callAmount > 0 ? 'inline-block' : 'none';
+        document.getElementById('callAmount').textContent = callAmount;
+
+        const betControls = document.getElementById('betControls');
+        const betBtn = document.getElementById('betBtn');
+        const raiseBtn = document.getElementById('raiseBtn');
+
+        if (currentGameState.currentBet === 0) {
+          betBtn.style.display = 'inline-block';
+          raiseBtn.style.display = 'none';
+          betControls.style.display = 'block';
+        } else {
+          betBtn.style.display = 'none';
+          raiseBtn.style.display = 'inline-block';
+          betControls.style.display = 'block';
+        }
+
+        // Update bet slider max
+        const slider = document.getElementById('betSlider');
+        slider.max = myPlayerState.chips;
+        slider.min = Math.max(currentGameState.currentBet - myPlayerState.bet, 0);
+
+      } else {
+        actionSection.style.display = 'none';
+        waitingMessage.style.display = 'block';
+
+        if (myPlayerState.folded) {
+          waitingMessage.textContent = 'You folded. Waiting for next hand...';
+        } else {
+          waitingMessage.textContent = 'Waiting for your turn...';
+        }
+      }
+    }
+
+    function showNotification(message, type = 'info') {
+      const notification = document.getElementById('notification');
+      notification.className = `notification ${type}`;
+      notification.textContent = message;
+      notification.style.display = 'block';
+
+      setTimeout(() => {
+        notification.style.display = 'none';
+      }, 3000);
+    }
+
+    // Socket event listeners
+    socket.on('connect', () => {
+      mySocketId = socket.id;
+    });
+
+    socket.on('joinedGame', (data) => {
+      if (data.success) {
+        document.getElementById('joinScreen').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'block';
+        document.getElementById('playerNameDisplay').textContent = data.player.name;
+        document.getElementById('myChips').textContent = `$${data.player.chips}`;
+        myPlayerState = data.playerState;
+        showNotification('Joined game successfully!', 'success');
+      } else {
+        showNotification(data.message, 'error');
+      }
+    });
+
+    socket.on('gameState', (gameState) => {
+      currentGameState = gameState;
+
+      // Update community cards preview
+      const communityCardsEl = document.getElementById('communityCardsPreview');
+      communityCardsEl.innerHTML = '';
+      if (gameState.communityCards && gameState.communityCards.length > 0) {
+        gameState.communityCards.forEach(card => {
+          communityCardsEl.appendChild(createCard(card));
+        });
+      }
+
+      // Update pot
+      document.getElementById('potPreview').textContent = `$${gameState.pot}`;
+
+      // Update game state display
+      const states = {
+        waiting: 'WAITING',
+        dealing: 'DEALING',
+        preflop: 'PRE-FLOP',
+        flop: 'FLOP',
+        turn: 'TURN',
+        river: 'RIVER',
+        showdown: 'SHOWDOWN'
+      };
+      document.getElementById('clientGameState').textContent = states[gameState.gameState] || gameState.gameState;
+
+      // Update my chips and bet from game state
+      const me = gameState.players.find(p => p.socketId === mySocketId);
+      if (me) {
+        document.getElementById('myChips').textContent = `$${me.chips}`;
+        if (me.bet > 0) {
+          document.getElementById('myBet').textContent = `Current Bet: $${me.bet}`;
+        } else {
+          document.getElementById('myBet').textContent = '';
+        }
+      }
+
+      updateActionButtons();
+    });
+
+    socket.on('playerState', (playerState) => {
+      myPlayerState = playerState;
+
+      if (playerState && playerState.cards) {
+        const myCardsEl = document.getElementById('myCards');
+        myCardsEl.innerHTML = '';
+        playerState.cards.forEach(card => {
+          myCardsEl.appendChild(createCard(card));
+        });
+      }
+
+      updateActionButtons();
+    });
+
+    socket.on('gameStarted', () => {
+      showNotification('Game started!', 'success');
+    });
+
+    socket.on('error', (data) => {
+      showNotification(data.message, 'error');
+    });
+
+    socket.on('showdown', (results) => {
+      showNotification('Showdown! Check the display.', 'info');
+    });
+
+    socket.on('handEnded', () => {
+      showNotification('Hand ended', 'info');
+    });
+
+    // Enter key to join
+    document.getElementById('playerName').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') joinGame();
+    });
+  </script>
+</body>
+</html>

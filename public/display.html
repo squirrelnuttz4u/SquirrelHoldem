@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Squirrel Hold'em - Display</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      overflow: hidden;
+    }
+
+    .display-container {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .logo {
+      font-size: 48px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+    }
+
+    .community-cards-section {
+      margin: 30px 0;
+    }
+
+    .section-title {
+      font-size: 28px;
+      text-align: center;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+    }
+
+    .dealer-button {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 60px;
+    }
+
+    .current-player-indicator {
+      font-size: 24px;
+      text-align: center;
+      margin: 20px 0;
+      padding: 15px;
+      background: rgba(255, 215, 0, 0.2);
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="display-container">
+    <div class="logo">🐿️ SQUIRREL HOLD'EM 🃏</div>
+
+    <div class="game-state" id="gameState">WAITING FOR PLAYERS</div>
+
+    <div class="pot-display">
+      <div class="pot-label">POT</div>
+      <div class="pot-amount" id="potAmount">$0</div>
+    </div>
+
+    <div class="community-cards-section">
+      <div class="section-title">COMMUNITY CARDS</div>
+      <div class="cards-container" id="communityCards">
+        <!-- Cards will be added here -->
+      </div>
+    </div>
+
+    <div class="current-player-indicator" id="currentPlayer" style="display: none;">
+      Current Player: <strong id="currentPlayerName">-</strong>
+    </div>
+
+    <div class="players-list" id="playersList">
+      <!-- Players will be added here -->
+    </div>
+
+    <div class="dealer-button" id="dealerButton" style="display: none;">🎯</div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    const gameStateEl = document.getElementById('gameState');
+    const potAmountEl = document.getElementById('potAmount');
+    const communityCardsEl = document.getElementById('communityCards');
+    const playersListEl = document.getElementById('playersList');
+    const currentPlayerEl = document.getElementById('currentPlayer');
+    const currentPlayerNameEl = document.getElementById('currentPlayerName');
+
+    function getSuitSymbol(suit) {
+      const symbols = {
+        hearts: '♥',
+        diamonds: '♦',
+        clubs: '♣',
+        spades: '♠'
+      };
+      return symbols[suit] || suit;
+    }
+
+    function createCard(card, large = true) {
+      const cardDiv = document.createElement('div');
+      cardDiv.className = `card ${card.suit} ${large ? 'card-large' : ''}`;
+
+      const rankTop = document.createElement('div');
+      rankTop.className = 'card-rank';
+      rankTop.textContent = card.rank;
+
+      const suitSymbol = document.createElement('div');
+      suitSymbol.className = 'card-suit';
+      suitSymbol.textContent = getSuitSymbol(card.suit);
+
+      const rankBottom = document.createElement('div');
+      rankBottom.className = 'card-rank-bottom';
+      rankBottom.textContent = card.rank;
+
+      cardDiv.appendChild(rankTop);
+      cardDiv.appendChild(suitSymbol);
+      cardDiv.appendChild(rankBottom);
+
+      return cardDiv;
+    }
+
+    function updateDisplay(gameState) {
+      // Update game state
+      const states = {
+        waiting: 'WAITING FOR PLAYERS',
+        dealing: 'DEALING CARDS',
+        preflop: 'PRE-FLOP',
+        flop: 'FLOP',
+        turn: 'TURN',
+        river: 'RIVER',
+        showdown: 'SHOWDOWN'
+      };
+      gameStateEl.textContent = states[gameState.gameState] || gameState.gameState.toUpperCase();
+
+      // Update pot
+      potAmountEl.textContent = `$${gameState.pot}`;
+
+      // Update community cards
+      communityCardsEl.innerHTML = '';
+      if (gameState.communityCards && gameState.communityCards.length > 0) {
+        gameState.communityCards.forEach(card => {
+          communityCardsEl.appendChild(createCard(card, true));
+        });
+      } else {
+        communityCardsEl.innerHTML = '<div style="color: rgba(255,255,255,0.5); font-size: 24px;">No cards yet</div>';
+      }
+
+      // Update current player
+      if (gameState.gameState !== 'waiting' && gameState.players[gameState.currentPlayerIndex]) {
+        currentPlayerEl.style.display = 'block';
+        currentPlayerNameEl.textContent = gameState.players[gameState.currentPlayerIndex].name;
+      } else {
+        currentPlayerEl.style.display = 'none';
+      }
+
+      // Update players list
+      playersListEl.innerHTML = '';
+      gameState.players.forEach((player, index) => {
+        const playerCard = document.createElement('div');
+        playerCard.className = 'player-card';
+
+        if (index === gameState.currentPlayerIndex && gameState.gameState !== 'waiting') {
+          playerCard.classList.add('active');
+        }
+
+        if (index === gameState.dealerIndex) {
+          playerCard.classList.add('dealer');
+        }
+
+        if (player.folded) {
+          playerCard.classList.add('folded');
+        }
+
+        playerCard.innerHTML = `
+          <div class="player-name">${player.name}</div>
+          <div class="player-chips">💰 $${player.chips}</div>
+          ${player.bet > 0 ? `<div class="player-bet">Bet: $${player.bet}</div>` : ''}
+          ${player.folded ? '<div style="color: #e74c3c;">FOLDED</div>' : ''}
+          ${player.allIn ? '<div style="color: #f39c12;">ALL IN</div>' : ''}
+        `;
+
+        playersListEl.appendChild(playerCard);
+      });
+    }
+
+    // Socket event listeners
+    socket.on('gameState', updateDisplay);
+    socket.on('gameStarted', () => {
+      console.log('Game started!');
+    });
+
+    socket.on('showdown', (results) => {
+      console.log('Showdown results:', results);
+      // Could add showdown animation here
+    });
+
+    console.log('Display connected to server');
+  </script>
+</body>
+</html>

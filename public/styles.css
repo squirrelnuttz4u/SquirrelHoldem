@@ -1,0 +1,354 @@
+/* Shared styles for Squirrel Hold'em */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  color: #fff;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Playing Card Styles */
+.card {
+  width: 80px;
+  height: 112px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: 5px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+.card-back {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-rank {
+  font-size: 28px;
+  font-weight: bold;
+  position: absolute;
+  top: 5px;
+  left: 8px;
+}
+
+.card-suit {
+  font-size: 48px;
+  margin-top: 15px;
+}
+
+.card-rank-bottom {
+  font-size: 20px;
+  font-weight: bold;
+  position: absolute;
+  bottom: 5px;
+  right: 8px;
+  transform: rotate(180deg);
+}
+
+.card.hearts, .card.diamonds {
+  color: #e74c3c;
+}
+
+.card.clubs, .card.spades {
+  color: #2c3e50;
+}
+
+/* Large cards for display */
+.card-large {
+  width: 120px;
+  height: 168px;
+}
+
+.card-large .card-rank {
+  font-size: 36px;
+  top: 8px;
+  left: 12px;
+}
+
+.card-large .card-suit {
+  font-size: 72px;
+  margin-top: 20px;
+}
+
+.card-large .card-rank-bottom {
+  font-size: 28px;
+  bottom: 8px;
+  right: 12px;
+}
+
+/* Card container */
+.cards-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+/* Poker table styles */
+.poker-table {
+  background: linear-gradient(135deg, #0f4c29 0%, #1a6b3f 100%);
+  border-radius: 200px;
+  padding: 40px;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+  margin: 20px auto;
+  position: relative;
+  border: 15px solid #8b4513;
+}
+
+.table-center {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.pot-display {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 15px;
+  padding: 20px;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.pot-amount {
+  font-size: 48px;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pot-label {
+  font-size: 24px;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+/* Player info */
+.players-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.player-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 15px;
+  backdrop-filter: blur(10px);
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.player-card.active {
+  border-color: #ffd700;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+.player-card.dealer::before {
+  content: '🎯';
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  font-size: 30px;
+}
+
+.player-card.folded {
+  opacity: 0.5;
+  filter: grayscale(100%);
+}
+
+.player-name {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.player-chips {
+  font-size: 24px;
+  color: #ffd700;
+  margin: 5px 0;
+}
+
+.player-bet {
+  font-size: 18px;
+  color: #4CAF50;
+}
+
+/* Buttons */
+.button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 15px 30px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 5px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.button:active {
+  transform: translateY(0);
+}
+
+.button-success {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+.button-danger {
+  background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+}
+
+.button-warning {
+  background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Input fields */
+input, select {
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 16px;
+}
+
+input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+label {
+  display: block;
+  margin: 10px 0 5px 0;
+  font-weight: bold;
+}
+
+/* Game state */
+.game-state {
+  text-align: center;
+  font-size: 32px;
+  font-weight: bold;
+  margin: 20px 0;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 15px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Action buttons container */
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .card {
+    width: 60px;
+    height: 84px;
+  }
+
+  .card-rank {
+    font-size: 20px;
+  }
+
+  .card-suit {
+    font-size: 36px;
+  }
+
+  .pot-amount {
+    font-size: 36px;
+  }
+
+  .button {
+    padding: 12px 20px;
+    font-size: 16px;
+  }
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.card {
+  animation: slideIn 0.3s ease;
+}
+
+/* Notification */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+}
+
+.notification.error {
+  border-left: 4px solid #e74c3c;
+}
+
+.notification.success {
+  border-left: 4px solid #2ecc71;
+}
+
+.notification.info {
+  border-left: 4px solid #3498db;
+}

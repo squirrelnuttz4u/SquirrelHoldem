@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Squirrel Hold'em</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .landing-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .logo-large {
+      font-size: 72px;
+      margin-bottom: 20px;
+      text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    .tagline {
+      font-size: 24px;
+      margin-bottom: 50px;
+      opacity: 0.9;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 30px;
+      max-width: 900px;
+      width: 100%;
+      margin-top: 30px;
+    }
+
+    .option-card {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 40px 30px;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+
+    .option-card:hover {
+      transform: translateY(-10px);
+      border-color: #ffd700;
+      box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3);
+    }
+
+    .option-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+
+    .option-title {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    .option-description {
+      font-size: 16px;
+      opacity: 0.8;
+      line-height: 1.5;
+    }
+
+    .footer {
+      margin-top: 50px;
+      font-size: 14px;
+      opacity: 0.6;
+    }
+
+    @media (max-width: 768px) {
+      .logo-large {
+        font-size: 48px;
+      }
+
+      .tagline {
+        font-size: 18px;
+      }
+
+      .options-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="landing-container">
+    <div class="logo-large">🐿️ SQUIRREL HOLD'EM 🃏</div>
+    <div class="tagline">Texas Hold'em Poker for Raspberry Pi</div>
+
+    <div class="options-grid">
+      <div class="option-card" onclick="window.location.href='display.html'">
+        <div class="option-icon">📺</div>
+        <div class="option-title">Display</div>
+        <div class="option-description">
+          Main display for Raspberry Pi showing community cards and game state
+        </div>
+      </div>
+
+      <div class="option-card" onclick="window.location.href='client.html'">
+        <div class="option-icon">📱</div>
+        <div class="option-title">Player</div>
+        <div class="option-description">
+          Join the game and play from your mobile device
+        </div>
+      </div>
+
+      <div class="option-card" onclick="window.location.href='admin.html'">
+        <div class="option-icon">⚙️</div>
+        <div class="option-title">Admin</div>
+        <div class="option-description">
+          Configure game settings and manage players
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Connect multiple devices to the same network and visit this address</p>
+      <p><strong id="serverUrl">Loading...</strong></p>
+    </div>
+  </div>
+
+  <script>
+    // Display server URL
+    document.getElementById('serverUrl').textContent = window.location.host;
+  </script>
+</body>
+</html>
