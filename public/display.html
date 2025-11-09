@@ -368,11 +368,14 @@
 
     .control-button.skip-button {
       background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-      display: none;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
     }
 
     .control-button.skip-button.visible {
-      display: block;
+      opacity: 1;
+      pointer-events: auto;
     }
 
     .control-button.mute-button {
@@ -807,7 +810,7 @@
       communityCardsEl.innerHTML = '';
       if (gameState.communityCards && gameState.communityCards.length > 0) {
         gameState.communityCards.forEach(card => {
-          communityCardsEl.appendChild(createCard(card, false));
+          communityCardsEl.appendChild(createCard(card, true)); // Use large cards for better visibility
         });
       }
 
@@ -874,7 +877,7 @@
         const cardsContainer = document.createElement('div');
         cardsContainer.className = 'showdown-cards';
         result.player.cards.forEach(card => {
-          cardsContainer.appendChild(createCard(card, false));
+          cardsContainer.appendChild(createCard(card, true)); // Use large cards for better visibility
         });
 
         const winningsHTML = result.isWinner ?

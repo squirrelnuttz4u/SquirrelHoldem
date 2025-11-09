@@ -272,6 +272,41 @@
       background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
       color: white;
     }
+
+    .seat-button {
+      padding: 15px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .seat-button:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: scale(1.05);
+    }
+
+    .seat-button.selected {
+      background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+      border-color: #2ecc71;
+      font-weight: bold;
+    }
+
+    .seat-button.occupied {
+      background: rgba(255, 0, 0, 0.2);
+      border-color: rgba(255, 0, 0, 0.4);
+      color: rgba(255, 255, 255, 0.5);
+      cursor: not-allowed;
+    }
+
+    .seat-button.occupied:hover {
+      transform: none;
+    }
   </style>
 </head>
 <body>
@@ -282,6 +317,17 @@
       <div class="join-form">
         <label for="playerName">Enter Your Name</label>
         <input type="text" id="playerName" placeholder="Your Name" maxlength="20">
+
+        <div style="margin-top: 20px;">
+          <label>Select Your Seat</label>
+          <div id="seatSelection" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px;">
+            <!-- Seats will be populated here -->
+          </div>
+          <div style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.7);">
+            Choose a seat that matches where you're sitting in real life
+          </div>
+        </div>
+
         <button class="button button-success" onclick="joinGame()" style="width: 100%; margin-top: 20px;">
           Join Game
         </button>
@@ -451,9 +497,44 @@
     let currentGameState = null;
     let mySessionId = null;
     let pendingAction = null; // For confirmation modal
+    let selectedSeat = null; // Selected seat position
 
     // Load session from localStorage
     const STORAGE_KEY = 'squirrelHoldemSession';
+
+    // Update seat selection display
+    function updateSeatSelection(availableSeats, maxSeats = 10) {
+      const seatSelectionEl = document.getElementById('seatSelection');
+      seatSelectionEl.innerHTML = '';
+
+      for (let i = 0; i < maxSeats; i++) {
+        const button = document.createElement('button');
+        button.className = 'seat-button';
+        button.textContent = `Seat ${i + 1}`;
+        button.type = 'button';
+
+        if (!availableSeats.includes(i)) {
+          button.classList.add('occupied');
+          button.disabled = true;
+        } else {
+          button.onclick = () => selectSeat(i);
+        }
+
+        if (selectedSeat === i) {
+          button.classList.add('selected');
+        }
+
+        seatSelectionEl.appendChild(button);
+      }
+    }
+
+    function selectSeat(seat) {
+      selectedSeat = seat;
+      // Re-render with selection
+      if (currentGameState) {
+        updateSeatSelection(currentGameState.availableSeats, currentGameState.config.maxPlayers);
+      }
+    }
 
     // Toggle hand rankings modal
     function toggleHandRankings() {
@@ -519,7 +600,8 @@
 
       socket.emit('joinGame', {
         name: name,
-        sessionId: sessionData ? sessionData.sessionId : null
+        sessionId: sessionData ? sessionData.sessionId : null,
+        seatPosition: selectedSeat
       });
     }
 
@@ -696,6 +778,12 @@
 
     socket.on('gameState', (gameState) => {
       currentGameState = gameState;
+
+      // Update seat selection if on join screen
+      if (document.getElementById('joinScreen').style.display !== 'none') {
+        const maxSeats = gameState.config ? gameState.config.maxPlayers : 10;
+        updateSeatSelection(gameState.availableSeats || [], maxSeats);
+      }
 
       // Update community cards preview
       const communityCardsEl = document.getElementById('communityCardsPreview');

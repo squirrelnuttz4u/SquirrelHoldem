@@ -97,8 +97,9 @@ io.on('connection', (socket) => {
   socket.on('joinGame', (data) => {
     const playerName = typeof data === 'string' ? data : data.name;
     const sessionId = typeof data === 'object' ? data.sessionId : null;
+    const seatPosition = typeof data === 'object' ? data.seatPosition : null;
 
-    const result = game.addPlayer(socket.id, playerName, sessionId);
+    const result = game.addPlayer(socket.id, playerName, sessionId, seatPosition);
 
     if (result.success) {
       socket.emit('joinedGame', {
@@ -106,7 +107,8 @@ io.on('connection', (socket) => {
         player: result.player,
         playerState: game.getPlayerState(socket.id),
         sessionId: result.sessionId,
-        isReconnect: result.isReconnect
+        isReconnect: result.isReconnect,
+        availableSeats: result.availableSeats
       });
       io.emit('gameState', game.getGameState());
 

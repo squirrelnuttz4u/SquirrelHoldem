@@ -6,6 +6,7 @@ const HandEvaluator = require('./handEvaluator');
 class PokerGame {
   constructor() {
     this.players = [];
+    this.seats = new Array(10).fill(null); // Track which seats are occupied (null = empty)
     this.deck = new Deck();
     this.communityCards = [];
     this.pot = 0;
@@ -44,7 +45,17 @@ class PokerGame {
     return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
   }
 
-  addPlayer(socketId, name, sessionId = null) {
+  getAvailableSeats() {
+    const available = [];
+    for (let i = 0; i < this.config.maxPlayers; i++) {
+      if (this.seats[i] === null) {
+        available.push(i);
+      }
+    }
+    return available;
+  }
+
+  addPlayer(socketId, name, sessionId = null, seatPosition = null) {
     // Check if reconnecting with existing session
     if (sessionId && this.playerSessions.has(sessionId)) {
       return this.reconnectPlayer(socketId, sessionId);
@@ -58,6 +69,25 @@ class PokerGame {
       return { success: false, message: 'Already in game' };
     }
 
+    // Determine seat position
+    let assignedSeat = seatPosition;
+    if (assignedSeat !== null) {
+      // Check if requested seat is available
+      if (assignedSeat < 0 || assignedSeat >= this.config.maxPlayers) {
+        return { success: false, message: 'Invalid seat position' };
+      }
+      if (this.seats[assignedSeat] !== null) {
+        return { success: false, message: 'Seat already taken' };
+      }
+    } else {
+      // Auto-assign first available seat
+      const available = this.getAvailableSeats();
+      if (available.length === 0) {
+        return { success: false, message: 'Game is full' };
+      }
+      assignedSeat = available[0];
+    }
+
     // Create new session
     const newSessionId = this.generateSessionId();
 
@@ -65,6 +95,7 @@ class PokerGame {
       socketId,
       sessionId: newSessionId,
       name,
+      seatPosition: assignedSeat,
       chips: this.config.startingChips,
       cards: [],
       bet: 0,
@@ -85,7 +116,9 @@ class PokerGame {
       }
     };
 
+    // Add player to players array and mark seat as occupied
     this.players.push(player);
+    this.seats[assignedSeat] = player;
     this.playerSessions.set(newSessionId, player);
 
     // Clear any disconnect timeout if exists
@@ -94,7 +127,7 @@ class PokerGame {
       this.disconnectedPlayers.delete(newSessionId);
     }
 
-    return { success: true, player, sessionId: newSessionId, isReconnect: false };
+    return { success: true, player, sessionId: newSessionId, isReconnect: false, availableSeats: this.getAvailableSeats() };
   }
 
   reconnectPlayer(socketId, sessionId) {
@@ -133,6 +166,11 @@ class PokerGame {
   removePlayerBySession(sessionId) {
     const index = this.players.findIndex(p => p.sessionId === sessionId);
     if (index !== -1) {
+      const player = this.players[index];
+      // Clear the seat
+      if (player.seatPosition !== undefined && player.seatPosition !== null) {
+        this.seats[player.seatPosition] = null;
+      }
       this.players.splice(index, 1);
       this.playerSessions.delete(sessionId);
       this.disconnectedPlayers.delete(sessionId);
@@ -730,6 +768,7 @@ class PokerGame {
         socketId: p.socketId,
         sessionId: p.sessionId,
         name: p.name,
+        seatPosition: p.seatPosition,
         chips: p.chips,
         bet: p.bet,
         folded: p.folded,
@@ -754,7 +793,8 @@ class PokerGame {
         big: this.config.bigBlind
       },
       blindTimer: this.getBlindTimerRemaining(),
-      paused: this.paused
+      paused: this.paused,
+      availableSeats: this.getAvailableSeats()
     };
   }
 
