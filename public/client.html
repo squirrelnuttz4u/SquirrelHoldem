@@ -108,6 +108,170 @@
       flex: 1;
       min-width: 80px;
     }
+
+    .help-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      font-size: 28px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+
+    .help-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .hand-rankings-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 2000;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .hand-rankings-modal.visible {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hand-rankings-content {
+      background: linear-gradient(135deg, #1a5f3f 0%, #0d3d27 100%);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      position: relative;
+    }
+
+    .hand-rankings-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      font-size: 28px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hand-rankings-title {
+      text-align: center;
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #ffd700;
+    }
+
+    .hand-ranking-item {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      padding: 15px;
+      margin: 10px 0;
+      border-left: 4px solid #ffd700;
+    }
+
+    .hand-ranking-name {
+      font-size: 20px;
+      font-weight: bold;
+      color: #ffd700;
+      margin-bottom: 5px;
+    }
+
+    .hand-ranking-description {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-top: 5px;
+    }
+
+    .hand-ranking-example {
+      font-size: 16px;
+      color: white;
+      margin-top: 5px;
+      font-family: monospace;
+    }
+
+    .confirmation-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 3000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .confirmation-modal.visible {
+      display: flex;
+    }
+
+    .confirmation-content {
+      background: linear-gradient(135deg, #1a5f3f 0%, #0d3d27 100%);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+
+    .confirmation-message {
+      font-size: 24px;
+      font-weight: bold;
+      color: white;
+      margin-bottom: 30px;
+    }
+
+    .confirmation-buttons {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+    }
+
+    .confirmation-buttons button {
+      padding: 15px 30px;
+      font-size: 18px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    .confirm-yes {
+      background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+      color: white;
+    }
+
+    .confirm-no {
+      background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -205,6 +369,80 @@
 
   <div id="notification"></div>
 
+  <!-- Help Button -->
+  <button class="help-button" id="helpButton" onclick="toggleHandRankings()">?</button>
+
+  <!-- Hand Rankings Modal -->
+  <div class="hand-rankings-modal" id="handRankingsModal">
+    <div class="hand-rankings-content">
+      <button class="hand-rankings-close" onclick="toggleHandRankings()">×</button>
+      <div class="hand-rankings-title">🃏 Poker Hand Rankings 🃏</div>
+      <div class="hand-rankings-list">
+        <div class="hand-ranking-item">
+          <div class="hand-ranking-name">1. Royal Flush</div>
+          <div class="hand-ranking-description">Best possible hand</div>
+          <div class="hand-ranking-example">A♠ K♠ Q♠ J♠ 10♠</div>
+        </div>
+        <div class="hand-ranking-item">
+          <div class="hand-ranking-name">2. Straight Flush</div>
+          <div class="hand-ranking-description">Five cards in sequence, same suit</div>
+          <div class="hand-ranking-example">9♥ 8♥ 7♥ 6♥ 5♥</div>
+        </div>
+        <div class="hand-ranking-item">
+          <div class="hand-ranking-name">3. Four of a Kind</div>
+          <div class="hand-ranking-description">Four cards of the same rank</div>
+          <div class="hand-ranking-example">K♠ K♥ K♦ K♣ 3♠</div>
+        </div>
+        <div class="hand-ranking-item">
+          <div class="hand-ranking-name">4. Full House</div>
+          <div class="hand-ranking-description">Three of a kind + pair</div>
+          <div class="hand-ranking-example">Q♠ Q♥ Q♦ 7♣ 7♠</div>
+        </div>
+        <div class="hand-ranking-item">
+          <div class="hand-ranking-name">5. Flush</div>
+          <div class="hand-ranking-description">Five cards, same suit (not in sequence)</div>
+          <div class="hand-ranking-example">A♦ J♦ 9♦ 6♦ 2♦</div>
+        </div>
+        <div class="hand-ranking-item">
+          <div class="hand-ranking-name">6. Straight</div>
+          <div class="hand-ranking-description">Five cards in sequence (not same suit)</div>
+          <div class="hand-ranking-example">10♠ 9♥ 8♦ 7♣ 6♠</div>
+        </div>
+        <div class="hand-ranking-item">
+          <div class="hand-ranking-name">7. Three of a Kind</div>
+          <div class="hand-ranking-description">Three cards of the same rank</div>
+          <div class="hand-ranking-example">8♠ 8♥ 8♦ K♣ 5♠</div>
+        </div>
+        <div class="hand-ranking-item">
+          <div class="hand-ranking-name">8. Two Pair</div>
+          <div class="hand-ranking-description">Two different pairs</div>
+          <div class="hand-ranking-example">J♠ J♥ 4♦ 4♣ 9♠</div>
+        </div>
+        <div class="hand-ranking-item">
+          <div class="hand-ranking-name">9. One Pair</div>
+          <div class="hand-ranking-description">Two cards of the same rank</div>
+          <div class="hand-ranking-example">A♠ A♥ K♦ 7♣ 3♠</div>
+        </div>
+        <div class="hand-ranking-item">
+          <div class="hand-ranking-name">10. High Card</div>
+          <div class="hand-ranking-description">No matching cards</div>
+          <div class="hand-ranking-example">A♠ K♥ 9♦ 5♣ 2♠</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div class="confirmation-modal" id="confirmationModal">
+    <div class="confirmation-content">
+      <div class="confirmation-message" id="confirmationMessage"></div>
+      <div class="confirmation-buttons">
+        <button class="confirm-yes" onclick="confirmAction(true)">Yes</button>
+        <button class="confirm-no" onclick="confirmAction(false)">No</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
@@ -212,9 +450,34 @@
     let myPlayerState = null;
     let currentGameState = null;
     let mySessionId = null;
+    let pendingAction = null; // For confirmation modal
 
     // Load session from localStorage
     const STORAGE_KEY = 'squirrelHoldemSession';
+
+    // Toggle hand rankings modal
+    function toggleHandRankings() {
+      const modal = document.getElementById('handRankingsModal');
+      modal.classList.toggle('visible');
+    }
+
+    // Confirmation modal functions
+    function showConfirmation(message, callback) {
+      const modal = document.getElementById('confirmationModal');
+      const messageEl = document.getElementById('confirmationMessage');
+      messageEl.textContent = message;
+      modal.classList.add('visible');
+      pendingAction = callback;
+    }
+
+    function confirmAction(confirmed) {
+      const modal = document.getElementById('confirmationModal');
+      modal.classList.remove('visible');
+      if (confirmed && pendingAction) {
+        pendingAction();
+      }
+      pendingAction = null;
+    }
 
     function getSuitSymbol(suit) {
       const symbols = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
@@ -270,7 +533,23 @@
         }
       }
 
-      socket.emit('playerAction', { action, amount });
+      // Show confirmation for fold, bet, and raise
+      if (action === 'fold') {
+        showConfirmation('Are you sure you want to fold?', () => {
+          socket.emit('playerAction', { action, amount });
+        });
+      } else if (action === 'bet') {
+        showConfirmation(`Bet $${amount}?`, () => {
+          socket.emit('playerAction', { action, amount });
+        });
+      } else if (action === 'raise') {
+        showConfirmation(`Raise to $${amount}?`, () => {
+          socket.emit('playerAction', { action, amount });
+        });
+      } else {
+        // Check and call don't need confirmation
+        socket.emit('playerAction', { action, amount });
+      }
     }
 
     function updateBetDisplay() {
@@ -305,9 +584,18 @@
     function updateActionButtons() {
       if (!myPlayerState || !currentGameState) return;
 
+      const useRealChips = currentGameState.config && currentGameState.config.useRealChips;
       const isMyTurn = myPlayerState.isCurrentPlayer;
       const actionSection = document.getElementById('actionSection');
       const waitingMessage = document.getElementById('waitingMessage');
+
+      // In real chips mode, hide all betting controls
+      if (useRealChips) {
+        actionSection.style.display = 'none';
+        waitingMessage.style.display = 'block';
+        waitingMessage.textContent = 'Use real chips for betting';
+        return;
+      }
 
       if (isMyTurn && !myPlayerState.folded) {
         actionSection.style.display = 'block';

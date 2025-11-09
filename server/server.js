@@ -275,6 +275,47 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Manual dealing for "use real chips" mode
+  socket.on('manualNewDeal', () => {
+    const result = game.manualNewDeal();
+    if (result.success) {
+      io.emit('gameState', game.getGameState());
+      // Send private cards to each player
+      game.players.forEach(player => {
+        io.to(player.socketId).emit('playerState', game.getPlayerState(player.socketId));
+      });
+    } else {
+      socket.emit('error', { message: result.message });
+    }
+  });
+
+  socket.on('manualDealFlop', () => {
+    const result = game.manualDealFlop();
+    if (result.success) {
+      io.emit('gameState', game.getGameState());
+    } else {
+      socket.emit('error', { message: result.message });
+    }
+  });
+
+  socket.on('manualDealTurn', () => {
+    const result = game.manualDealTurn();
+    if (result.success) {
+      io.emit('gameState', game.getGameState());
+    } else {
+      socket.emit('error', { message: result.message });
+    }
+  });
+
+  socket.on('manualDealRiver', () => {
+    const result = game.manualDealRiver();
+    if (result.success) {
+      io.emit('gameState', game.getGameState());
+    } else {
+      socket.emit('error', { message: result.message });
+    }
+  });
+
   // Disconnect
   socket.on('disconnect', () => {
     const player = game.players.find(p => p.socketId === socket.id);

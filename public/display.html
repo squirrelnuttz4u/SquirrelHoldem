@@ -440,6 +440,14 @@
       <button class="control-button mute-button" id="muteButton" onclick="toggleMute()">🔊 Sound</button>
     </div>
 
+    <!-- Manual Dealing Buttons (Real Chips Mode) -->
+    <div class="control-buttons" id="manualDealingButtons" style="bottom: 80px; display: none;">
+      <button class="control-button" onclick="manualNewDeal()" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">🃏 New Deal</button>
+      <button class="control-button" id="flopBtn" onclick="manualDealFlop()" style="display: none;">Flop</button>
+      <button class="control-button" id="turnBtn" onclick="manualDealTurn()" style="display: none;">Turn</button>
+      <button class="control-button" id="riverBtn" onclick="manualDealRiver()" style="display: none;">River</button>
+    </div>
+
     <div class="poker-table-container">
       <div class="poker-table"></div>
 
@@ -583,6 +591,27 @@
       }
     }
 
+    // Manual dealing functions
+    function manualNewDeal() {
+      socket.emit('manualNewDeal');
+      playSound('newHand');
+    }
+
+    function manualDealFlop() {
+      socket.emit('manualDealFlop');
+      playSound('flop');
+    }
+
+    function manualDealTurn() {
+      socket.emit('manualDealTurn');
+      playSound('turn');
+    }
+
+    function manualDealRiver() {
+      socket.emit('manualDealRiver');
+      playSound('river');
+    }
+
     // Toggle pause
     function togglePause() {
       const pauseButton = document.getElementById('pauseButton');
@@ -720,12 +749,31 @@
       };
       gameStateEl.textContent = states[gameState.gameState] || gameState.gameState.toUpperCase();
 
-      // Show/hide skip button
+      // Show/hide skip button (not needed in real chips mode)
       const skipButton = document.getElementById('skipButton');
-      if (gameState.gameState !== 'waiting' && gameState.gameState !== 'showdown' && gameState.players.length > 0) {
+      const useRealChips = gameState.config && gameState.config.useRealChips;
+
+      if (!useRealChips && gameState.gameState !== 'waiting' && gameState.gameState !== 'showdown' && gameState.players.length > 0) {
         skipButton.classList.add('visible');
       } else {
         skipButton.classList.remove('visible');
+      }
+
+      // Show/hide manual dealing buttons
+      const manualDealingButtons = document.getElementById('manualDealingButtons');
+      const flopBtn = document.getElementById('flopBtn');
+      const turnBtn = document.getElementById('turnBtn');
+      const riverBtn = document.getElementById('riverBtn');
+
+      if (useRealChips) {
+        manualDealingButtons.style.display = 'flex';
+
+        // Show/hide buttons based on game state
+        flopBtn.style.display = gameState.gameState === 'preflop' ? 'block' : 'none';
+        turnBtn.style.display = gameState.gameState === 'flop' ? 'block' : 'none';
+        riverBtn.style.display = gameState.gameState === 'turn' ? 'block' : 'none';
+      } else {
+        manualDealingButtons.style.display = 'none';
       }
 
       // Update blinds display

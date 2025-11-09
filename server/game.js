@@ -28,7 +28,8 @@ class PokerGame {
       autoNextHandDelay: 5000, // Delay in ms before starting next hand
       reconnectTimeout: 300000, // 5 minutes to reconnect
       blindTimerEnabled: false, // Enable blind increase timer
-      blindTimerMinutes: 15 // Minutes before blinds double
+      blindTimerMinutes: 15, // Minutes before blinds double
+      useRealChips: false // Use real physical chips - display cards only
     };
     this.roundBets = {};
     this.currentHandNumber = 0;
@@ -205,6 +206,71 @@ class PokerGame {
       reason: timerExpired ? 'timer' : (eliminationCheck.eliminated ? 'elimination' : null),
       newBlinds: timerExpired ? timerCheck.newBlinds : (eliminationCheck.eliminated ? eliminationCheck.newBlinds : null)
     };
+  }
+
+  // Manual dealing methods for "use real chips" mode
+  manualNewDeal() {
+    if (this.players.length < this.config.minPlayers) {
+      return { success: false, message: 'Not enough players' };
+    }
+
+    this.gameState = 'dealing';
+    this.deck.reset();
+    this.deck.shuffle();
+    this.communityCards = [];
+    this.currentHandNumber++;
+
+    // Reset players
+    this.players.forEach(player => {
+      player.cards = [];
+      player.folded = false;
+      player.active = true;
+      player.lastAction = null;
+      player.lastActionAmount = 0;
+      player.stats.handsPlayed++;
+    });
+
+    // Deal hole cards
+    this.dealHoleCards();
+
+    this.gameState = 'preflop';
+    this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
+
+    return { success: true };
+  }
+
+  manualDealFlop() {
+    if (this.gameState !== 'preflop') {
+      return { success: false, message: 'Can only deal flop after new deal' };
+    }
+
+    // Deal 3 cards for flop
+    for (let i = 0; i < 3; i++) {
+      this.communityCards.push(this.deck.deal());
+    }
+
+    this.gameState = 'flop';
+    return { success: true };
+  }
+
+  manualDealTurn() {
+    if (this.gameState !== 'flop') {
+      return { success: false, message: 'Can only deal turn after flop' };
+    }
+
+    this.communityCards.push(this.deck.deal());
+    this.gameState = 'turn';
+    return { success: true };
+  }
+
+  manualDealRiver() {
+    if (this.gameState !== 'turn') {
+      return { success: false, message: 'Can only deal river after turn' };
+    }
+
+    this.communityCards.push(this.deck.deal());
+    this.gameState = 'river';
+    return { success: true };
   }
 
   postBlinds() {
