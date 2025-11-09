@@ -19,17 +19,21 @@ class PokerGame {
     this.disconnectedPlayers = new Map(); // sessionId -> timeout
     this.lastHandResults = null; // Store results from last completed hand
     this.config = {
-      smallBlind: 10,
-      bigBlind: 20,
+      smallBlind: 1,
+      bigBlind: 2,
       startingChips: 1000,
       minPlayers: 2,
       maxPlayers: 10,
       autoNextHand: true, // Automatically start next hand
       autoNextHandDelay: 5000, // Delay in ms before starting next hand
-      reconnectTimeout: 300000 // 5 minutes to reconnect
+      reconnectTimeout: 300000, // 5 minutes to reconnect
+      blindTimerEnabled: false, // Enable blind increase timer
+      blindTimerMinutes: 15 // Minutes before blinds double
     };
     this.roundBets = {};
     this.currentHandNumber = 0;
+    this.blindTimerStart = null; // Track when timer started
+    this.activePlayers = 0; // Track players with chips
   }
 
   generateSessionId() {
@@ -145,6 +149,18 @@ class PokerGame {
       return { success: false, message: 'Not enough players' };
     }
 
+    // Initialize active players count if not set
+    if (this.activePlayers === 0) {
+      this.activePlayers = this.players.filter(p => p.chips > 0).length;
+    }
+
+    // Check for timer expiration and double blinds if needed
+    const timerCheck = this.checkBlindTimer();
+    const timerExpired = timerCheck.timerExpired;
+
+    // Check for player elimination and double blinds if needed
+    const eliminationCheck = this.checkAndHandleElimination();
+
     this.gameState = 'dealing';
     this.deck.reset();
     this.deck.shuffle();
@@ -180,7 +196,12 @@ class PokerGame {
     // In preflop, big blind is last to act, so set them as last aggressor
     this.lastAggressorIndex = (this.dealerIndex + 2) % this.players.length;
 
-    return { success: true };
+    return {
+      success: true,
+      blindsDoubled: timerExpired || eliminationCheck.eliminated,
+      reason: timerExpired ? 'timer' : (eliminationCheck.eliminated ? 'elimination' : null),
+      newBlinds: timerExpired ? timerCheck.newBlinds : (eliminationCheck.eliminated ? eliminationCheck.newBlinds : null)
+    };
   }
 
   postBlinds() {
@@ -534,6 +555,73 @@ class PokerGame {
     this.pot = 0;
   }
 
+  doubleBlinds() {
+    this.config.smallBlind *= 2;
+    this.config.bigBlind *= 2;
+    return {
+      smallBlind: this.config.smallBlind,
+      bigBlind: this.config.bigBlind
+    };
+  }
+
+  checkAndHandleElimination() {
+    const previousActivePlayers = this.activePlayers;
+    this.activePlayers = this.players.filter(p => p.chips > 0).length;
+
+    // If a player was eliminated, double the blinds
+    if (previousActivePlayers > 0 && this.activePlayers < previousActivePlayers) {
+      const blinds = this.doubleBlinds();
+      return {
+        eliminated: true,
+        playersEliminated: previousActivePlayers - this.activePlayers,
+        newBlinds: blinds
+      };
+    }
+
+    return { eliminated: false };
+  }
+
+  checkBlindTimer() {
+    if (!this.config.blindTimerEnabled) {
+      return { timerExpired: false };
+    }
+
+    if (!this.blindTimerStart) {
+      this.blindTimerStart = Date.now();
+      return { timerExpired: false };
+    }
+
+    const elapsed = Date.now() - this.blindTimerStart;
+    const timerDuration = this.config.blindTimerMinutes * 60 * 1000;
+
+    if (elapsed >= timerDuration) {
+      const blinds = this.doubleBlinds();
+      this.blindTimerStart = Date.now(); // Reset timer
+      return {
+        timerExpired: true,
+        newBlinds: blinds
+      };
+    }
+
+    return { timerExpired: false };
+  }
+
+  getBlindTimerRemaining() {
+    if (!this.config.blindTimerEnabled || !this.blindTimerStart) {
+      return null;
+    }
+
+    const elapsed = Date.now() - this.blindTimerStart;
+    const timerDuration = this.config.blindTimerMinutes * 60 * 1000;
+    const remaining = Math.max(0, timerDuration - elapsed);
+
+    return {
+      remainingMs: remaining,
+      remainingMinutes: Math.floor(remaining / 60000),
+      remainingSeconds: Math.floor((remaining % 60000) / 1000)
+    };
+  }
+
   getGameState() {
     return {
       players: this.players.map(p => ({
@@ -558,7 +646,12 @@ class PokerGame {
       dealerIndex: this.dealerIndex,
       gameState: this.gameState,
       currentHandNumber: this.currentHandNumber,
-      config: this.config
+      config: this.config,
+      blinds: {
+        small: this.config.smallBlind,
+        big: this.config.bigBlind
+      },
+      blindTimer: this.getBlindTimerRemaining()
     };
   }
 

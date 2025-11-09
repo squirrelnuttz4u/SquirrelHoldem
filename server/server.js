@@ -65,6 +65,31 @@ app.get('/api/server-info', (req, res) => {
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
 
+  // Helper function to start game and handle blind notifications
+  const startGameAndNotify = () => {
+    const result = game.startGame();
+    if (result.success) {
+      // Notify if blinds doubled
+      if (result.blindsDoubled) {
+        const reason = result.reason === 'timer' ? 'Timer expired!' : 'Player eliminated!';
+        io.emit('notification', {
+          type: 'blindsDoubled',
+          message: `${reason} Blinds increased to $${result.newBlinds.smallBlind}/$${result.newBlinds.bigBlind}`,
+          newBlinds: result.newBlinds
+        });
+      }
+
+      io.emit('gameStarted');
+      io.emit('gameState', game.getGameState());
+
+      // Send private cards to each player
+      game.players.forEach(player => {
+        io.to(player.socketId).emit('playerState', game.getPlayerState(player.socketId));
+      });
+    }
+    return result;
+  };
+
   // Send current game state to new connection
   socket.emit('gameState', game.getGameState());
 
@@ -97,17 +122,8 @@ io.on('connection', (socket) => {
 
   // Start game (admin only)
   socket.on('startGame', () => {
-    const result = game.startGame();
-
-    if (result.success) {
-      io.emit('gameStarted');
-      io.emit('gameState', game.getGameState());
-
-      // Send private cards to each player
-      game.players.forEach(player => {
-        io.to(player.socketId).emit('playerState', game.getPlayerState(player.socketId));
-      });
-    } else {
+    const result = startGameAndNotify();
+    if (!result.success) {
       socket.emit('error', { message: result.message });
     }
   });
@@ -136,16 +152,7 @@ io.on('connection', (socket) => {
           // Start next hand automatically if enabled and enough players
           if (game.config.autoNextHand && game.players.length >= game.config.minPlayers) {
             setTimeout(() => {
-              const nextHandResult = game.startGame();
-              if (nextHandResult.success) {
-                io.emit('gameStarted');
-                io.emit('gameState', game.getGameState());
-
-                // Send private cards to each player
-                game.players.forEach(player => {
-                  io.to(player.socketId).emit('playerState', game.getPlayerState(player.socketId));
-                });
-              }
+              startGameAndNotify();
             }, 3000); // Wait 3 more seconds before starting next hand
           }
         }, 5000);

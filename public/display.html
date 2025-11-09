@@ -288,10 +288,58 @@
     .skip-button.visible {
       display: block;
     }
+
+    .info-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 10px;
+      padding: 15px;
+      z-index: 100;
+      min-width: 200px;
+    }
+
+    .info-item {
+      margin: 8px 0;
+      font-size: 16px;
+      color: #fff;
+    }
+
+    .info-label {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+    }
+
+    .info-value {
+      color: #ffd700;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .timer-value {
+      color: #2ecc71;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .timer-value.warning {
+      color: #e74c3c;
+    }
   </style>
 </head>
 <body>
   <div class="display-container">
+    <div class="info-panel">
+      <div class="info-item">
+        <div class="info-label">Blinds</div>
+        <div class="info-value" id="blindsDisplay">$1 / $2</div>
+      </div>
+      <div class="info-item" id="timerSection" style="display: none;">
+        <div class="info-label">Next Blind Increase</div>
+        <div class="timer-value" id="timerDisplay">15:00</div>
+      </div>
+    </div>
     <a href="admin.html" class="admin-link">⚙️ Admin</a>
     <div class="logo">🐿️ SQUIRREL HOLD'EM 🃏</div>
     <div class="game-state" id="gameState">WAITING FOR PLAYERS</div>
@@ -414,6 +462,30 @@
         skipButton.classList.add('visible');
       } else {
         skipButton.classList.remove('visible');
+      }
+
+      // Update blinds display
+      if (gameState.blinds) {
+        document.getElementById('blindsDisplay').textContent = `$${gameState.blinds.small} / $${gameState.blinds.big}`;
+      }
+
+      // Update timer display
+      const timerSection = document.getElementById('timerSection');
+      const timerDisplay = document.getElementById('timerDisplay');
+      if (gameState.config && gameState.config.blindTimerEnabled && gameState.blindTimer) {
+        timerSection.style.display = 'block';
+        const minutes = gameState.blindTimer.remainingMinutes;
+        const seconds = gameState.blindTimer.remainingSeconds;
+        timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+        // Change color to red if less than 2 minutes
+        if (minutes < 2) {
+          timerDisplay.classList.add('warning');
+        } else {
+          timerDisplay.classList.remove('warning');
+        }
+      } else {
+        timerSection.style.display = 'none';
       }
 
       // Update pot

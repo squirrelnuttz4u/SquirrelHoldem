@@ -174,8 +174,12 @@
             <button class="button" onclick="setQuickBet(1)">Pot</button>
             <button class="button" onclick="setQuickBet(2)">2x Pot</button>
           </div>
-          <input type="range" id="betSlider" class="bet-slider" min="0" max="1000" value="0" oninput="updateBetDisplay()">
-          <div class="bet-amount-display" id="betAmountDisplay">$0</div>
+          <input type="range" id="betSlider" class="bet-slider" min="0" max="1000" value="2" oninput="updateBetDisplay()">
+          <div style="display: flex; align-items: center; gap: 10px; margin: 10px 0;">
+            <span style="color: white;">$</span>
+            <input type="number" id="betInput" class="bet-input" min="0" max="1000" value="2" oninput="updateBetFromInput()" style="flex: 1; padding: 8px; font-size: 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 4px;">
+          </div>
+          <div class="bet-amount-display" id="betAmountDisplay">$2</div>
         </div>
 
         <div class="action-buttons">
@@ -259,7 +263,7 @@
     function playerAction(action) {
       let amount = 0;
       if (action === 'bet' || action === 'raise') {
-        amount = parseInt(document.getElementById('betSlider').value);
+        amount = parseInt(document.getElementById('betInput').value);
         if (amount <= 0) {
           showNotification('Please select a bet amount', 'error');
           return;
@@ -271,7 +275,18 @@
 
     function updateBetDisplay() {
       const slider = document.getElementById('betSlider');
+      const input = document.getElementById('betInput');
       const display = document.getElementById('betAmountDisplay');
+      input.value = slider.value;
+      display.textContent = `$${slider.value}`;
+    }
+
+    function updateBetFromInput() {
+      const slider = document.getElementById('betSlider');
+      const input = document.getElementById('betInput');
+      const display = document.getElementById('betAmountDisplay');
+      const value = parseInt(input.value) || 0;
+      slider.value = Math.min(Math.max(value, parseInt(slider.min)), parseInt(slider.max));
       display.textContent = `$${slider.value}`;
     }
 
@@ -280,7 +295,10 @@
       const pot = currentGameState.pot;
       const betAmount = Math.floor(pot * multiplier);
       const slider = document.getElementById('betSlider');
-      slider.value = Math.min(betAmount, parseInt(slider.max));
+      const input = document.getElementById('betInput');
+      const value = Math.min(betAmount, parseInt(slider.max));
+      slider.value = value;
+      input.value = value;
       updateBetDisplay();
     }
 
@@ -316,10 +334,24 @@
           betControls.style.display = 'block';
         }
 
-        // Update bet slider max
+        // Update bet slider max and default value
         const slider = document.getElementById('betSlider');
+        const input = document.getElementById('betInput');
         slider.max = myPlayerState.chips;
-        slider.min = Math.max(currentGameState.currentBet - myPlayerState.bet, 0);
+        input.max = myPlayerState.chips;
+
+        const minBet = Math.max(currentGameState.currentBet - myPlayerState.bet, 0);
+        slider.min = minBet;
+        input.min = minBet;
+
+        // Set default bet: $10 if only 2 active players (with chips), otherwise $2
+        const activePlayers = currentGameState.players.filter(p => p.chips > 0).length;
+        const defaultBet = activePlayers === 2 ? 10 : 2;
+        const initialValue = Math.max(defaultBet, minBet);
+
+        slider.value = Math.min(initialValue, myPlayerState.chips);
+        input.value = slider.value;
+        updateBetDisplay();
 
       } else {
         actionSection.style.display = 'none';
