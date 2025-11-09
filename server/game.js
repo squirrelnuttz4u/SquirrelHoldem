@@ -13,12 +13,16 @@ class PokerGame {
     this.dealerIndex = 0;
     this.currentPlayerIndex = 0;
     this.gameState = 'waiting'; // waiting, dealing, preflop, flop, turn, river, showdown
+    this.lastAggressorIndex = -1; // Track last player to bet/raise
+    this.playersActed = new Set(); // Track who has acted this round
     this.config = {
       smallBlind: 10,
       bigBlind: 20,
       startingChips: 1000,
       minPlayers: 2,
-      maxPlayers: 10
+      maxPlayers: 10,
+      autoNextHand: true, // Automatically start next hand
+      autoNextHandDelay: 5000 // Delay in ms before starting next hand
     };
     this.roundBets = {};
   }
@@ -69,6 +73,7 @@ class PokerGame {
     this.pot = 0;
     this.currentBet = 0;
     this.roundBets = {};
+    this.playersActed = new Set();
 
     // Reset players
     this.players.forEach(player => {
@@ -86,7 +91,10 @@ class PokerGame {
     this.dealHoleCards();
 
     this.gameState = 'preflop';
+    // Start after big blind (UTG position)
     this.currentPlayerIndex = (this.dealerIndex + 3) % this.players.length;
+    // In preflop, big blind is last to act, so set them as last aggressor
+    this.lastAggressorIndex = (this.dealerIndex + 2) % this.players.length;
 
     return { success: true };
   }
@@ -123,6 +131,9 @@ class PokerGame {
       return { success: false, message: 'Not your turn' };
     }
 
+    // Mark this player as having acted
+    this.playersActed.add(this.currentPlayerIndex);
+
     switch (action) {
       case 'fold':
         player.folded = true;
@@ -132,6 +143,7 @@ class PokerGame {
         if (player.bet < this.currentBet) {
           return { success: false, message: 'Cannot check, must call or raise' };
         }
+        // Check doesn't change aggressor
         break;
 
       case 'call':
@@ -140,6 +152,7 @@ class PokerGame {
         player.bet += callAmount;
         this.pot += callAmount;
         if (player.chips === 0) player.allIn = true;
+        // Call doesn't change aggressor
         break;
 
       case 'raise':
@@ -152,6 +165,17 @@ class PokerGame {
         this.pot += raiseAmount;
         this.currentBet = player.bet;
         if (player.chips === 0) player.allIn = true;
+        // Raise makes this player the last aggressor
+        this.lastAggressorIndex = this.currentPlayerIndex;
+        // Clear acted set except for folded/all-in players - everyone needs to respond to the raise
+        const newActed = new Set();
+        this.players.forEach((p, idx) => {
+          if (p.folded || p.allIn) {
+            newActed.add(idx);
+          }
+        });
+        newActed.add(this.currentPlayerIndex); // The raiser has acted
+        this.playersActed = newActed;
         break;
 
       case 'bet':
@@ -164,6 +188,17 @@ class PokerGame {
         this.pot += betAmount;
         this.currentBet = player.bet;
         if (player.chips === 0) player.allIn = true;
+        // Bet makes this player the last aggressor
+        this.lastAggressorIndex = this.currentPlayerIndex;
+        // Clear acted set except for folded/all-in players
+        const newActedBet = new Set();
+        this.players.forEach((p, idx) => {
+          if (p.folded || p.allIn) {
+            newActedBet.add(idx);
+          }
+        });
+        newActedBet.add(this.currentPlayerIndex); // The better has acted
+        this.playersActed = newActedBet;
         break;
 
       default:
@@ -177,8 +212,29 @@ class PokerGame {
   nextPlayer() {
     const activePlayers = this.players.filter(p => !p.folded && !p.allIn);
 
+    // Only one player left, they win
     if (activePlayers.length === 1) {
       this.endHand();
+      return;
+    }
+
+    // No active players (all folded or all-in), go to showdown
+    if (activePlayers.length === 0) {
+      this.nextStreet();
+      return;
+    }
+
+    // Check if betting round is complete:
+    // 1. All active players have matching bets
+    // 2. All active players have acted
+    const allBetsEqual = activePlayers.every(p => p.bet === this.currentBet);
+    const allPlayersActed = activePlayers.every((p, idx) => {
+      const playerIndex = this.players.indexOf(p);
+      return this.playersActed.has(playerIndex);
+    });
+
+    if (allBetsEqual && allPlayersActed) {
+      this.nextStreet();
       return;
     }
 
@@ -189,11 +245,6 @@ class PokerGame {
     while (checked < this.players.length) {
       const nextPlayer = this.players[nextIndex];
       if (!nextPlayer.folded && !nextPlayer.allIn) {
-        // Check if betting round is complete
-        if (activePlayers.every(p => p.bet === this.currentBet)) {
-          this.nextStreet();
-          return;
-        }
         this.currentPlayerIndex = nextIndex;
         return;
       }
@@ -201,7 +252,7 @@ class PokerGame {
       checked++;
     }
 
-    // All players all-in or folded
+    // All players all-in or folded (shouldn't reach here, but just in case)
     this.nextStreet();
   }
 
@@ -209,6 +260,16 @@ class PokerGame {
     // Reset bets for next round
     this.players.forEach(p => p.bet = 0);
     this.currentBet = 0;
+
+    // Reset tracking for new betting round
+    this.playersActed = new Set();
+    // Mark folded and all-in players as "acted" since they can't act
+    this.players.forEach((p, idx) => {
+      if (p.folded || p.allIn) {
+        this.playersActed.add(idx);
+      }
+    });
+    this.lastAggressorIndex = -1; // No aggressor yet in new round
 
     switch (this.gameState) {
       case 'preflop':
@@ -228,7 +289,9 @@ class PokerGame {
         return;
     }
 
+    // Start with first player after dealer
     this.currentPlayerIndex = (this.dealerIndex + 1) % this.players.length;
+    // Skip to next active player
     while (this.players[this.currentPlayerIndex].folded || this.players[this.currentPlayerIndex].allIn) {
       this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
     }

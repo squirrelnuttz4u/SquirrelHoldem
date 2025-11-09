@@ -91,13 +91,49 @@ io.on('connection', (socket) => {
       if (game.gameState === 'showdown') {
         const results = game.showdown();
         io.emit('showdown', results);
+
+        // Auto-start next hand after showing results
         setTimeout(() => {
           io.emit('gameState', game.getGameState());
+
+          // Start next hand automatically if enabled and enough players
+          if (game.config.autoNextHand && game.players.length >= game.config.minPlayers) {
+            setTimeout(() => {
+              const nextHandResult = game.startGame();
+              if (nextHandResult.success) {
+                io.emit('gameStarted');
+                io.emit('gameState', game.getGameState());
+
+                // Send private cards to each player
+                game.players.forEach(player => {
+                  io.to(player.socketId).emit('playerState', game.getPlayerState(player.socketId));
+                });
+              }
+            }, 3000); // Wait 3 more seconds before starting next hand
+          }
         }, 5000);
       } else if (game.gameState === 'waiting') {
         io.emit('handEnded');
+
+        // Auto-start next hand
         setTimeout(() => {
           io.emit('gameState', game.getGameState());
+
+          // Start next hand automatically if enabled and enough players
+          if (game.config.autoNextHand && game.players.length >= game.config.minPlayers) {
+            setTimeout(() => {
+              const nextHandResult = game.startGame();
+              if (nextHandResult.success) {
+                io.emit('gameStarted');
+                io.emit('gameState', game.getGameState());
+
+                // Send private cards to each player
+                game.players.forEach(player => {
+                  io.to(player.socketId).emit('playerState', game.getPlayerState(player.socketId));
+                });
+              }
+            }, 3000);
+          }
         }, 3000);
       }
     } else {
