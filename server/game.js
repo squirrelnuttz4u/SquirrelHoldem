@@ -15,6 +15,8 @@ class PokerGame {
     this.gameState = 'waiting'; // waiting, dealing, preflop, flop, turn, river, showdown
     this.lastAggressorIndex = -1; // Track last player to bet/raise
     this.playersActed = new Set(); // Track who has acted this round
+    this.playerSessions = new Map(); // sessionId -> player data
+    this.disconnectedPlayers = new Map(); // sessionId -> timeout
     this.config = {
       smallBlind: 10,
       bigBlind: 20,
@@ -22,12 +24,23 @@ class PokerGame {
       minPlayers: 2,
       maxPlayers: 10,
       autoNextHand: true, // Automatically start next hand
-      autoNextHandDelay: 5000 // Delay in ms before starting next hand
+      autoNextHandDelay: 5000, // Delay in ms before starting next hand
+      reconnectTimeout: 300000 // 5 minutes to reconnect
     };
     this.roundBets = {};
+    this.currentHandNumber = 0;
   }
 
-  addPlayer(socketId, name) {
+  generateSessionId() {
+    return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+  }
+
+  addPlayer(socketId, name, sessionId = null) {
+    // Check if reconnecting with existing session
+    if (sessionId && this.playerSessions.has(sessionId)) {
+      return this.reconnectPlayer(socketId, sessionId);
+    }
+
     if (this.players.length >= this.config.maxPlayers) {
       return { success: false, message: 'Game is full' };
     }
@@ -36,29 +49,92 @@ class PokerGame {
       return { success: false, message: 'Already in game' };
     }
 
+    // Create new session
+    const newSessionId = this.generateSessionId();
+
     const player = {
       socketId,
+      sessionId: newSessionId,
       name,
       chips: this.config.startingChips,
       cards: [],
       bet: 0,
       folded: false,
       allIn: false,
-      active: true
+      active: true,
+      connected: true,
+      stats: {
+        handsPlayed: 0,
+        handsWon: 0,
+        biggestPot: 0,
+        totalWinnings: 0,
+        totalLosses: 0,
+        currentStreak: 0,
+        bestStreak: 0
+      }
     };
 
     this.players.push(player);
-    return { success: true, player };
+    this.playerSessions.set(newSessionId, player);
+
+    // Clear any disconnect timeout if exists
+    if (this.disconnectedPlayers.has(newSessionId)) {
+      clearTimeout(this.disconnectedPlayers.get(newSessionId));
+      this.disconnectedPlayers.delete(newSessionId);
+    }
+
+    return { success: true, player, sessionId: newSessionId, isReconnect: false };
   }
 
-  removePlayer(socketId) {
-    const index = this.players.findIndex(p => p.socketId === socketId);
+  reconnectPlayer(socketId, sessionId) {
+    const player = this.playerSessions.get(sessionId);
+    if (!player) {
+      return { success: false, message: 'Session not found' };
+    }
+
+    // Clear disconnect timeout
+    if (this.disconnectedPlayers.has(sessionId)) {
+      clearTimeout(this.disconnectedPlayers.get(sessionId));
+      this.disconnectedPlayers.delete(sessionId);
+    }
+
+    // Update socket ID and mark as connected
+    player.socketId = socketId;
+    player.connected = true;
+
+    return { success: true, player, sessionId, isReconnect: true };
+  }
+
+  handleDisconnect(socketId) {
+    const player = this.players.find(p => p.socketId === socketId);
+    if (!player) return;
+
+    player.connected = false;
+
+    // Set timeout to remove player if they don't reconnect
+    const timeout = setTimeout(() => {
+      this.removePlayerBySession(player.sessionId);
+    }, this.config.reconnectTimeout);
+
+    this.disconnectedPlayers.set(player.sessionId, timeout);
+  }
+
+  removePlayerBySession(sessionId) {
+    const index = this.players.findIndex(p => p.sessionId === sessionId);
     if (index !== -1) {
       this.players.splice(index, 1);
+      this.playerSessions.delete(sessionId);
+      this.disconnectedPlayers.delete(sessionId);
+
       if (this.players.length < this.config.minPlayers && this.gameState !== 'waiting') {
         this.endGame();
       }
     }
+  }
+
+  removePlayer(socketId) {
+    // Legacy method - now just calls handleDisconnect
+    this.handleDisconnect(socketId);
   }
 
   startGame() {
@@ -74,14 +150,16 @@ class PokerGame {
     this.currentBet = 0;
     this.roundBets = {};
     this.playersActed = new Set();
+    this.currentHandNumber++;
 
-    // Reset players
+    // Reset players and track hands played
     this.players.forEach(player => {
       player.cards = [];
       player.bet = 0;
       player.folded = false;
       player.allIn = false;
       player.active = true;
+      player.stats.handsPlayed++;
     });
 
     // Post blinds
@@ -325,7 +403,7 @@ class PokerGame {
 
     results.sort((a, b) => HandEvaluator.compareHands(b.hand, a.hand));
 
-    // Award pot (simple version, doesn't handle side pots)
+    // Award pot and update statistics
     if (results.length > 0) {
       const winners = [results[0]];
       for (let i = 1; i < results.length; i++) {
@@ -338,7 +416,28 @@ class PokerGame {
 
       const winAmount = Math.floor(this.pot / winners.length);
       winners.forEach(w => {
+        const startingChips = w.player.chips;
         w.player.chips += winAmount;
+
+        // Update statistics
+        w.player.stats.handsWon++;
+        w.player.stats.totalWinnings += winAmount;
+        w.player.stats.currentStreak++;
+
+        if (w.player.stats.currentStreak > w.player.stats.bestStreak) {
+          w.player.stats.bestStreak = w.player.stats.currentStreak;
+        }
+
+        if (this.pot > w.player.stats.biggestPot) {
+          w.player.stats.biggestPot = this.pot;
+        }
+      });
+
+      // Update losers' statistics
+      activePlayers.forEach(p => {
+        if (!winners.find(w => w.player.socketId === p.socketId)) {
+          p.stats.currentStreak = 0;
+        }
       });
     }
 
@@ -352,6 +451,26 @@ class PokerGame {
     const winner = this.players.find(p => !p.folded);
     if (winner) {
       winner.chips += this.pot;
+
+      // Update statistics for winner (everyone else folded)
+      winner.stats.handsWon++;
+      winner.stats.totalWinnings += this.pot;
+      winner.stats.currentStreak++;
+
+      if (winner.stats.currentStreak > winner.stats.bestStreak) {
+        winner.stats.bestStreak = winner.stats.currentStreak;
+      }
+
+      if (this.pot > winner.stats.biggestPot) {
+        winner.stats.biggestPot = this.pot;
+      }
+
+      // Reset streak for players who folded
+      this.players.forEach(p => {
+        if (p.folded) {
+          p.stats.currentStreak = 0;
+        }
+      });
     }
 
     this.gameState = 'waiting';
@@ -368,13 +487,16 @@ class PokerGame {
     return {
       players: this.players.map(p => ({
         socketId: p.socketId,
+        sessionId: p.sessionId,
         name: p.name,
         chips: p.chips,
         bet: p.bet,
         folded: p.folded,
         allIn: p.allIn,
         active: p.active,
-        cardCount: p.cards.length
+        connected: p.connected,
+        cardCount: p.cards.length,
+        stats: p.stats
       })),
       communityCards: this.communityCards,
       pot: this.pot,
@@ -382,6 +504,7 @@ class PokerGame {
       currentPlayerIndex: this.currentPlayerIndex,
       dealerIndex: this.dealerIndex,
       gameState: this.gameState,
+      currentHandNumber: this.currentHandNumber,
       config: this.config
     };
   }
@@ -391,10 +514,13 @@ class PokerGame {
     if (!player) return null;
 
     return {
+      sessionId: player.sessionId,
+      name: player.name,
       cards: player.cards,
       chips: player.chips,
       bet: player.bet,
       folded: player.folded,
+      stats: player.stats,
       isCurrentPlayer: this.players[this.currentPlayerIndex]?.socketId === socketId
     };
   }

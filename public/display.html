@@ -180,12 +180,20 @@
           playerCard.classList.add('folded');
         }
 
+        const connectedIndicator = player.connected ? '' : ' <span style="color: #e74c3c; font-size: 12px;">●</span>';
+        const statsDisplay = player.stats ?
+          `<div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">
+            Wins: ${player.stats.handsWon}/${player.stats.handsPlayed}
+            ${player.stats.currentStreak > 0 ? ` | 🔥${player.stats.currentStreak}` : ''}
+          </div>` : '';
+
         playerCard.innerHTML = `
-          <div class="player-name">${player.name}</div>
+          <div class="player-name">${player.name}${connectedIndicator}</div>
           <div class="player-chips">💰 $${player.chips}</div>
           ${player.bet > 0 ? `<div class="player-bet">Bet: $${player.bet}</div>` : ''}
           ${player.folded ? '<div style="color: #e74c3c;">FOLDED</div>' : ''}
           ${player.allIn ? '<div style="color: #f39c12;">ALL IN</div>' : ''}
+          ${!player.folded && !player.allIn ? statsDisplay : ''}
         `;
 
         playersListEl.appendChild(playerCard);

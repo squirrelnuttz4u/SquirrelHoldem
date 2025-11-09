@@ -42,17 +42,27 @@ io.on('connection', (socket) => {
   socket.emit('gameState', game.getGameState());
 
   // Player joins game
-  socket.on('joinGame', (playerName) => {
-    const result = game.addPlayer(socket.id, playerName);
+  socket.on('joinGame', (data) => {
+    const playerName = typeof data === 'string' ? data : data.name;
+    const sessionId = typeof data === 'object' ? data.sessionId : null;
+
+    const result = game.addPlayer(socket.id, playerName, sessionId);
 
     if (result.success) {
       socket.emit('joinedGame', {
         success: true,
         player: result.player,
-        playerState: game.getPlayerState(socket.id)
+        playerState: game.getPlayerState(socket.id),
+        sessionId: result.sessionId,
+        isReconnect: result.isReconnect
       });
       io.emit('gameState', game.getGameState());
-      io.emit('playerJoined', { name: playerName });
+
+      if (result.isReconnect) {
+        io.emit('playerReconnected', { name: result.player.name });
+      } else {
+        io.emit('playerJoined', { name: playerName });
+      }
     } else {
       socket.emit('joinedGame', { success: false, message: result.message });
     }
@@ -149,9 +159,13 @@ io.on('connection', (socket) => {
 
   // Disconnect
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-    game.removePlayer(socket.id);
-    io.emit('gameState', game.getGameState());
+    const player = game.players.find(p => p.socketId === socket.id);
+    if (player) {
+      console.log('Client disconnected:', socket.id, '-', player.name);
+      game.handleDisconnect(socket.id);
+      io.emit('playerDisconnected', { name: player.name, sessionId: player.sessionId });
+      io.emit('gameState', game.getGameState());
+    }
   });
 });
 

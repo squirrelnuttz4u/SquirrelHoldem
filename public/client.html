@@ -131,6 +131,15 @@
         <h2 id="playerNameDisplay">Player</h2>
         <div class="my-chips" id="myChips">$0</div>
         <div id="myBet" style="font-size: 20px; color: #4CAF50;"></div>
+        <div id="myStats" style="margin-top: 15px; font-size: 14px; opacity: 0.9; display: none;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+            <div>Hands: <strong id="statHandsPlayed">0</strong></div>
+            <div>Won: <strong id="statHandsWon">0</strong></div>
+            <div>Streak: <strong id="statStreak">0</strong>🔥</div>
+            <div>Best: <strong id="statBestStreak">0</strong>🏆</div>
+          </div>
+          <div style="margin-top: 10px;">Biggest Pot: <strong id="statBiggestPot">$0</strong></div>
+        </div>
       </div>
 
       <!-- Community Cards Preview -->
@@ -198,6 +207,10 @@
     let mySocketId = null;
     let myPlayerState = null;
     let currentGameState = null;
+    let mySessionId = null;
+
+    // Load session from localStorage
+    const STORAGE_KEY = 'squirrelHoldemSession';
 
     function getSuitSymbol(suit) {
       const symbols = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
@@ -233,7 +246,14 @@
         return;
       }
 
-      socket.emit('joinGame', name);
+      // Try to load existing session
+      const savedSession = localStorage.getItem(STORAGE_KEY);
+      const sessionData = savedSession ? JSON.parse(savedSession) : null;
+
+      socket.emit('joinGame', {
+        name: name,
+        sessionId: sessionData ? sessionData.sessionId : null
+      });
     }
 
     function playerAction(action) {
@@ -331,12 +351,24 @@
 
     socket.on('joinedGame', (data) => {
       if (data.success) {
+        // Save session to localStorage
+        mySessionId = data.sessionId;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          sessionId: data.sessionId,
+          playerName: data.player.name
+        }));
+
         document.getElementById('joinScreen').style.display = 'none';
         document.getElementById('gameScreen').style.display = 'block';
         document.getElementById('playerNameDisplay').textContent = data.player.name;
         document.getElementById('myChips').textContent = `$${data.player.chips}`;
         myPlayerState = data.playerState;
-        showNotification('Joined game successfully!', 'success');
+
+        if (data.isReconnect) {
+          showNotification('Reconnected successfully! Welcome back!', 'success');
+        } else {
+          showNotification('Joined game successfully!', 'success');
+        }
       } else {
         showNotification(data.message, 'error');
       }
@@ -394,6 +426,17 @@
         });
       }
 
+      // Update stats if available
+      if (playerState && playerState.stats) {
+        const statsDiv = document.getElementById('myStats');
+        statsDiv.style.display = 'block';
+        document.getElementById('statHandsPlayed').textContent = playerState.stats.handsPlayed;
+        document.getElementById('statHandsWon').textContent = playerState.stats.handsWon;
+        document.getElementById('statStreak').textContent = playerState.stats.currentStreak;
+        document.getElementById('statBestStreak').textContent = playerState.stats.bestStreak;
+        document.getElementById('statBiggestPot').textContent = '$' + playerState.stats.biggestPot;
+      }
+
       updateActionButtons();
     });
 
@@ -416,6 +459,24 @@
     // Enter key to join
     document.getElementById('playerName').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') joinGame();
+    });
+
+    // Check for saved session on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedSession = localStorage.getItem(STORAGE_KEY);
+      if (savedSession) {
+        try {
+          const sessionData = JSON.parse(savedSession);
+          if (sessionData.playerName) {
+            document.getElementById('playerName').value = sessionData.playerName;
+            document.getElementById('joinMessage').innerHTML =
+              '<div style="color: #4CAF50;">✓ Saved session found. Click join to reconnect.</div>';
+          }
+        } catch (e) {
+          // Invalid session data, ignore
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      }
     });
   </script>
 </body>
