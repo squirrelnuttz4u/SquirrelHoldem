@@ -326,10 +326,100 @@
     .timer-value.warning {
       color: #e74c3c;
     }
+
+    .control-buttons {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 100;
+    }
+
+    .control-button {
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .control-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .control-button:active {
+      transform: translateY(0);
+    }
+
+    .control-button.pause-button {
+      background: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
+    }
+
+    .control-button.pause-button.paused {
+      background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+    }
+
+    .control-button.skip-button {
+      background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+      display: none;
+    }
+
+    .control-button.skip-button.visible {
+      display: block;
+    }
+
+    .control-button.mute-button {
+      background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+    }
+
+    .control-button.mute-button.muted {
+      background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    }
+
+    .paused-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 500;
+    }
+
+    .paused-overlay.visible {
+      display: flex;
+    }
+
+    .paused-message {
+      background: rgba(0, 0, 0, 0.9);
+      padding: 40px 60px;
+      border-radius: 20px;
+      font-size: 48px;
+      font-weight: bold;
+      color: #f39c12;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
   </style>
 </head>
 <body>
   <div class="display-container">
+    <div class="paused-overlay" id="pausedOverlay">
+      <div class="paused-message">
+        ⏸️ GAME PAUSED ⏸️
+      </div>
+    </div>
+
     <div class="info-panel">
       <div class="info-item">
         <div class="info-label">Blinds</div>
@@ -343,7 +433,12 @@
     <a href="admin.html" class="admin-link">⚙️ Admin</a>
     <div class="logo">🐿️ SQUIRREL HOLD'EM 🃏</div>
     <div class="game-state" id="gameState">WAITING FOR PLAYERS</div>
-    <button class="skip-button" id="skipButton" onclick="skipPlayer()">⏭️ Skip Player</button>
+
+    <div class="control-buttons">
+      <button class="control-button pause-button" id="pauseButton" onclick="togglePause()">⏸️ Pause</button>
+      <button class="control-button skip-button" id="skipButton" onclick="skipPlayer()">⏭️ Skip</button>
+      <button class="control-button mute-button" id="muteButton" onclick="toggleMute()">🔊 Sound</button>
+    </div>
 
     <div class="poker-table-container">
       <div class="poker-table"></div>
@@ -375,13 +470,153 @@
   <script>
     const socket = io();
     let currentShowdownResults = null;
+    let soundMuted = false;
+    let isPaused = false;
 
     const gameStateEl = document.getElementById('gameState');
     const potAmountEl = document.getElementById('potAmount');
     const communityCardsEl = document.getElementById('communityCards');
     const playerSeatsEl = document.getElementById('playerSeats');
+
+    // Sound System using Web Audio API
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+
+    function playSound(type) {
+      if (soundMuted) return;
+
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      const now = audioCtx.currentTime;
+
+      switch(type) {
+        case 'newHand':
+          // Upward arpeggio
+          oscillator.frequency.setValueAtTime(440, now);
+          oscillator.frequency.setValueAtTime(554, now + 0.1);
+          oscillator.frequency.setValueAtTime(659, now + 0.2);
+          gainNode.gain.setValueAtTime(0.3, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+          oscillator.start(now);
+          oscillator.stop(now + 0.4);
+          break;
+
+        case 'bet':
+          // Single tone
+          oscillator.frequency.value = 523;
+          oscillator.type = 'sine';
+          gainNode.gain.setValueAtTime(0.2, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+          oscillator.start(now);
+          oscillator.stop(now + 0.15);
+          break;
+
+        case 'raise':
+          // Double tone
+          oscillator.frequency.setValueAtTime(523, now);
+          oscillator.frequency.setValueAtTime(659, now + 0.1);
+          oscillator.type = 'sine';
+          gainNode.gain.setValueAtTime(0.25, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          oscillator.start(now);
+          oscillator.stop(now + 0.25);
+          break;
+
+        case 'fold':
+          // Downward tone
+          oscillator.frequency.setValueAtTime(523, now);
+          oscillator.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+          oscillator.type = 'sine';
+          gainNode.gain.setValueAtTime(0.15, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+          oscillator.start(now);
+          oscillator.stop(now + 0.2);
+          break;
+
+        case 'flop':
+          // Three quick tones
+          oscillator.frequency.setValueAtTime(392, now);
+          oscillator.frequency.setValueAtTime(440, now + 0.08);
+          oscillator.frequency.setValueAtTime(494, now + 0.16);
+          oscillator.type = 'triangle';
+          gainNode.gain.setValueAtTime(0.25, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          oscillator.start(now);
+          oscillator.stop(now + 0.3);
+          break;
+
+        case 'turn':
+          // Single higher tone
+          oscillator.frequency.value = 587;
+          oscillator.type = 'triangle';
+          gainNode.gain.setValueAtTime(0.25, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+          oscillator.start(now);
+          oscillator.stop(now + 0.2);
+          break;
+
+        case 'river':
+          // Higher tone with vibrato
+          oscillator.frequency.value = 659;
+          oscillator.type = 'triangle';
+          gainNode.gain.setValueAtTime(0.25, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          oscillator.start(now);
+          oscillator.stop(now + 0.25);
+          break;
+
+        case 'winner':
+          // Victory fanfare
+          oscillator.frequency.setValueAtTime(523, now);
+          oscillator.frequency.setValueAtTime(659, now + 0.15);
+          oscillator.frequency.setValueAtTime(784, now + 0.3);
+          oscillator.frequency.setValueAtTime(1046, now + 0.45);
+          oscillator.type = 'square';
+          gainNode.gain.setValueAtTime(0.3, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+          oscillator.start(now);
+          oscillator.stop(now + 0.7);
+          break;
+      }
+    }
+
+    // Toggle pause
+    function togglePause() {
+      const pauseButton = document.getElementById('pauseButton');
+      const pausedOverlay = document.getElementById('pausedOverlay');
+
+      if (isPaused) {
+        socket.emit('resumeGame');
+      } else {
+        socket.emit('pauseGame');
+      }
+    }
+
+    // Toggle mute
+    function toggleMute() {
+      soundMuted = !soundMuted;
+      const muteButton = document.getElementById('muteButton');
+      muteButton.classList.toggle('muted', soundMuted);
+      muteButton.textContent = soundMuted ? '🔇 Muted' : '🔊 Sound';
+      localStorage.setItem('soundMuted', soundMuted);
+    }
+
+    // Load mute preference
+    const savedMute = localStorage.getItem('soundMuted');
+    if (savedMute === 'true') {
+      soundMuted = true;
+      document.getElementById('muteButton').classList.add('muted');
+      document.getElementById('muteButton').textContent = '🔇 Muted';
+    }
     const showdownModal = document.getElementById('showdownModal');
     const showdownResultsEl = document.getElementById('showdownResults');
+
+    // Track previous game state for sound triggers
+    let previousGameState = null;
+    let previousCommunityCardsCount = 0;
 
     function getSuitSymbol(suit) {
       const symbols = {
@@ -444,7 +679,36 @@
     }
 
     function updateDisplay(gameState) {
-      // Update game state
+      // Handle pause state
+      const pausedOverlay = document.getElementById('pausedOverlay');
+      const pauseButton = document.getElementById('pauseButton');
+      isPaused = gameState.paused;
+
+      if (gameState.paused) {
+        pausedOverlay.classList.add('visible');
+        pauseButton.classList.add('paused');
+        pauseButton.textContent = '▶️ Resume';
+      } else {
+        pausedOverlay.classList.remove('visible');
+        pauseButton.classList.remove('paused');
+        pauseButton.textContent = '⏸️ Pause';
+      }
+
+      // Detect game state transitions and play sounds
+      if (previousGameState !== gameState.gameState) {
+        if (gameState.gameState === 'preflop' && previousGameState === 'dealing') {
+          playSound('newHand');
+        } else if (gameState.gameState === 'flop') {
+          playSound('flop');
+        } else if (gameState.gameState === 'turn') {
+          playSound('turn');
+        } else if (gameState.gameState === 'river') {
+          playSound('river');
+        }
+        previousGameState = gameState.gameState;
+      }
+
+      // Update game state display
       const states = {
         waiting: 'WAITING FOR PLAYERS',
         dealing: 'DEALING CARDS',
@@ -589,7 +853,25 @@
     }
 
     // Socket event listeners
-    socket.on('gameState', updateDisplay);
+    socket.on('gameState', (gameState) => {
+      updateDisplay(gameState);
+
+      // Detect player actions and play sounds
+      if (gameState.players) {
+        gameState.players.forEach(player => {
+          if (player.lastAction) {
+            // Only play sound for recent actions (you could add timestamp checking if needed)
+            if (player.lastAction === 'bet') {
+              playSound('bet');
+            } else if (player.lastAction === 'raise') {
+              playSound('raise');
+            } else if (player.lastAction === 'fold') {
+              playSound('fold');
+            }
+          }
+        });
+      }
+    });
 
     socket.on('gameStarted', () => {
       console.log('Game started!');
@@ -599,6 +881,15 @@
       console.log('Showdown results:', results);
       currentShowdownResults = results;
       displayShowdown(results);
+      playSound('winner');
+    });
+
+    socket.on('gamePaused', () => {
+      console.log('Game paused');
+    });
+
+    socket.on('gameResumed', () => {
+      console.log('Game resumed');
     });
 
     socket.on('handEnded', () => {

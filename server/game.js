@@ -34,6 +34,9 @@ class PokerGame {
     this.currentHandNumber = 0;
     this.blindTimerStart = null; // Track when timer started
     this.activePlayers = 0; // Track players with chips
+    this.paused = false; // Game pause state
+    this.pausedAt = null; // When game was paused
+    this.totalPausedTime = 0; // Total time spent paused (for timer adjustment)
   }
 
   generateSessionId() {
@@ -591,12 +594,18 @@ class PokerGame {
       return { timerExpired: false };
     }
 
-    const elapsed = Date.now() - this.blindTimerStart;
+    // Calculate elapsed time excluding paused time
+    let elapsed = Date.now() - this.blindTimerStart - this.totalPausedTime;
+    if (this.paused && this.pausedAt) {
+      elapsed -= (Date.now() - this.pausedAt);
+    }
+
     const timerDuration = this.config.blindTimerMinutes * 60 * 1000;
 
     if (elapsed >= timerDuration) {
       const blinds = this.doubleBlinds();
       this.blindTimerStart = Date.now(); // Reset timer
+      this.totalPausedTime = 0; // Reset paused time
       return {
         timerExpired: true,
         newBlinds: blinds
@@ -611,7 +620,12 @@ class PokerGame {
       return null;
     }
 
-    const elapsed = Date.now() - this.blindTimerStart;
+    // Calculate elapsed time excluding paused time
+    let elapsed = Date.now() - this.blindTimerStart - this.totalPausedTime;
+    if (this.paused && this.pausedAt) {
+      elapsed -= (Date.now() - this.pausedAt);
+    }
+
     const timerDuration = this.config.blindTimerMinutes * 60 * 1000;
     const remaining = Math.max(0, timerDuration - elapsed);
 
@@ -620,6 +634,28 @@ class PokerGame {
       remainingMinutes: Math.floor(remaining / 60000),
       remainingSeconds: Math.floor((remaining % 60000) / 1000)
     };
+  }
+
+  pauseGame() {
+    if (this.paused) {
+      return { success: false, message: 'Game already paused' };
+    }
+    this.paused = true;
+    this.pausedAt = Date.now();
+    return { success: true };
+  }
+
+  resumeGame() {
+    if (!this.paused) {
+      return { success: false, message: 'Game not paused' };
+    }
+    // Add this pause duration to total paused time
+    if (this.pausedAt) {
+      this.totalPausedTime += (Date.now() - this.pausedAt);
+    }
+    this.paused = false;
+    this.pausedAt = null;
+    return { success: true };
   }
 
   getGameState() {
@@ -651,7 +687,8 @@ class PokerGame {
         small: this.config.smallBlind,
         big: this.config.bigBlind
       },
-      blindTimer: this.getBlindTimerRemaining()
+      blindTimer: this.getBlindTimerRemaining(),
+      paused: this.paused
     };
   }
 

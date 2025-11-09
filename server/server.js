@@ -253,6 +253,28 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Pause game
+  socket.on('pauseGame', () => {
+    const result = game.pauseGame();
+    if (result.success) {
+      io.emit('gamePaused');
+      io.emit('gameState', game.getGameState());
+    } else {
+      socket.emit('error', { message: result.message });
+    }
+  });
+
+  // Resume game
+  socket.on('resumeGame', () => {
+    const result = game.resumeGame();
+    if (result.success) {
+      io.emit('gameResumed');
+      io.emit('gameState', game.getGameState());
+    } else {
+      socket.emit('error', { message: result.message });
+    }
+  });
+
   // Disconnect
   socket.on('disconnect', () => {
     const player = game.players.find(p => p.socketId === socket.id);
