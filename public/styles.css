@@ -103,6 +103,29 @@ body {
   right: 12px;
 }
 
+/* Extra large cards for display - even bigger for visibility */
+.card-xlarge {
+  width: 160px;
+  height: 224px;
+}
+
+.card-xlarge .card-rank {
+  font-size: 48px;
+  top: 10px;
+  left: 15px;
+}
+
+.card-xlarge .card-suit {
+  font-size: 96px;
+  margin-top: 25px;
+}
+
+.card-xlarge .card-rank-bottom {
+  font-size: 36px;
+  bottom: 10px;
+  right: 15px;
+}
+
 /* Card container */
 .cards-container {
   display: flex;

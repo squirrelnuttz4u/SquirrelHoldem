@@ -660,9 +660,10 @@
       return symbols[suit] || suit;
     }
 
-    function createCard(card, large = false) {
+    function createCard(card, size = 'normal') {
       const cardDiv = document.createElement('div');
-      cardDiv.className = `card ${card.suit} ${large ? 'card-large' : ''}`;
+      const sizeClass = size === 'xlarge' ? 'card-xlarge' : (size === 'large' ? 'card-large' : '');
+      cardDiv.className = `card ${card.suit} ${sizeClass}`;
 
       const rankTop = document.createElement('div');
       rankTop.className = 'card-rank';
@@ -683,9 +684,10 @@
       return cardDiv;
     }
 
-    function getPlayerPosition(index, totalPlayers) {
-      // Position players around an ellipse
-      const angle = (index / totalPlayers) * 2 * Math.PI - Math.PI / 2; // Start at top
+    function getPlayerPosition(seatPosition, maxSeats = 10) {
+      // Position players around an ellipse based on their seat position
+      // This ensures players appear in their chosen seat, matching physical positions
+      const angle = (seatPosition / maxSeats) * 2 * Math.PI - Math.PI / 2; // Start at top
       const radiusX = 45; // Horizontal radius (%)
       const radiusY = 40; // Vertical radius (%)
 
@@ -810,14 +812,17 @@
       communityCardsEl.innerHTML = '';
       if (gameState.communityCards && gameState.communityCards.length > 0) {
         gameState.communityCards.forEach(card => {
-          communityCardsEl.appendChild(createCard(card, true)); // Use large cards for better visibility
+          communityCardsEl.appendChild(createCard(card, 'xlarge')); // Use extra large cards for better visibility
         });
       }
 
       // Update players around the table
       playerSeatsEl.innerHTML = '';
+      const maxSeats = gameState.config ? gameState.config.maxPlayers : 10;
       gameState.players.forEach((player, index) => {
-        const position = getPlayerPosition(index, gameState.players.length);
+        // Use the player's seat position if available, otherwise fall back to index
+        const seatPos = player.seatPosition !== undefined ? player.seatPosition : index;
+        const position = getPlayerPosition(seatPos, maxSeats);
 
         const seat = document.createElement('div');
         seat.className = 'player-seat';
@@ -841,10 +846,12 @@
         const actionDisplay = player.lastAction ? getActionDisplay(player.lastAction, player.lastActionAmount) : '';
         const statusDisplay = player.folded ? '<div style="color: #e74c3c; font-weight: bold;">FOLDED</div>' :
                              player.allIn ? '<div style="color: #f39c12; font-weight: bold;">ALL IN</div>' : '';
+        const seatLabel = seatPos !== undefined ? `<div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 3px;">Seat ${seatPos + 1}</div>` : '';
 
         seat.innerHTML = `
           <div class="player-seat-inner">
             <div class="player-name-display">${player.name}${connectedIndicator}</div>
+            ${seatLabel}
             <div class="player-chips-display">💰 $${player.chips}</div>
             ${betDisplay}
             ${statusDisplay}
@@ -877,7 +884,7 @@
         const cardsContainer = document.createElement('div');
         cardsContainer.className = 'showdown-cards';
         result.player.cards.forEach(card => {
-          cardsContainer.appendChild(createCard(card, true)); // Use large cards for better visibility
+          cardsContainer.appendChild(createCard(card, 'xlarge')); // Use extra large cards for better visibility
         });
 
         const winningsHTML = result.isWinner ?
