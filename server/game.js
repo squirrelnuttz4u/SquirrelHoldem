@@ -63,6 +63,8 @@ class PokerGame {
       allIn: false,
       active: true,
       connected: true,
+      lastAction: null, // Track last action (fold, check, call, raise, bet)
+      lastActionAmount: 0, // Track amount for raises/bets
       stats: {
         handsPlayed: 0,
         handsWon: 0,
@@ -159,6 +161,8 @@ class PokerGame {
       player.folded = false;
       player.allIn = false;
       player.active = true;
+      player.lastAction = null;
+      player.lastActionAmount = 0;
       player.stats.handsPlayed++;
     });
 
@@ -215,12 +219,16 @@ class PokerGame {
     switch (action) {
       case 'fold':
         player.folded = true;
+        player.lastAction = 'fold';
+        player.lastActionAmount = 0;
         break;
 
       case 'check':
         if (player.bet < this.currentBet) {
           return { success: false, message: 'Cannot check, must call or raise' };
         }
+        player.lastAction = 'check';
+        player.lastActionAmount = 0;
         // Check doesn't change aggressor
         break;
 
@@ -229,6 +237,8 @@ class PokerGame {
         player.chips -= callAmount;
         player.bet += callAmount;
         this.pot += callAmount;
+        player.lastAction = 'call';
+        player.lastActionAmount = callAmount;
         if (player.chips === 0) player.allIn = true;
         // Call doesn't change aggressor
         break;
@@ -242,6 +252,8 @@ class PokerGame {
         player.bet += raiseAmount;
         this.pot += raiseAmount;
         this.currentBet = player.bet;
+        player.lastAction = 'raise';
+        player.lastActionAmount = raiseAmount;
         if (player.chips === 0) player.allIn = true;
         // Raise makes this player the last aggressor
         this.lastAggressorIndex = this.currentPlayerIndex;
@@ -265,6 +277,8 @@ class PokerGame {
         player.bet += betAmount;
         this.pot += betAmount;
         this.currentBet = player.bet;
+        player.lastAction = 'bet';
+        player.lastActionAmount = betAmount;
         if (player.chips === 0) player.allIn = true;
         // Bet makes this player the last aggressor
         this.lastAggressorIndex = this.currentPlayerIndex;
@@ -335,8 +349,12 @@ class PokerGame {
   }
 
   nextStreet() {
-    // Reset bets for next round
-    this.players.forEach(p => p.bet = 0);
+    // Reset bets and actions for next round
+    this.players.forEach(p => {
+      p.bet = 0;
+      p.lastAction = null;
+      p.lastActionAmount = 0;
+    });
     this.currentBet = 0;
 
     // Reset tracking for new betting round
@@ -398,7 +416,15 @@ class PokerGame {
 
     const results = activePlayers.map(player => {
       const hand = HandEvaluator.evaluateHand([...player.cards, ...this.communityCards]);
-      return { player, hand };
+      return {
+        player: {
+          socketId: player.socketId,
+          name: player.name,
+          cards: player.cards
+        },
+        hand,
+        handName: hand.name
+      };
     });
 
     results.sort((a, b) => HandEvaluator.compareHands(b.hand, a.hand));
@@ -416,21 +442,26 @@ class PokerGame {
 
       const winAmount = Math.floor(this.pot / winners.length);
       winners.forEach(w => {
-        const startingChips = w.player.chips;
-        w.player.chips += winAmount;
+        // Get actual player object from players array
+        const actualPlayer = this.players.find(p => p.socketId === w.player.socketId);
+        actualPlayer.chips += winAmount;
 
         // Update statistics
-        w.player.stats.handsWon++;
-        w.player.stats.totalWinnings += winAmount;
-        w.player.stats.currentStreak++;
+        actualPlayer.stats.handsWon++;
+        actualPlayer.stats.totalWinnings += winAmount;
+        actualPlayer.stats.currentStreak++;
 
-        if (w.player.stats.currentStreak > w.player.stats.bestStreak) {
-          w.player.stats.bestStreak = w.player.stats.currentStreak;
+        if (actualPlayer.stats.currentStreak > actualPlayer.stats.bestStreak) {
+          actualPlayer.stats.bestStreak = actualPlayer.stats.currentStreak;
         }
 
-        if (this.pot > w.player.stats.biggestPot) {
-          w.player.stats.biggestPot = this.pot;
+        if (this.pot > actualPlayer.stats.biggestPot) {
+          actualPlayer.stats.biggestPot = this.pot;
         }
+
+        // Mark as winner in results
+        w.isWinner = true;
+        w.winAmount = winAmount;
       });
 
       // Update losers' statistics
@@ -496,6 +527,8 @@ class PokerGame {
         active: p.active,
         connected: p.connected,
         cardCount: p.cards.length,
+        lastAction: p.lastAction,
+        lastActionAmount: p.lastActionAmount,
         stats: p.stats
       })),
       communityCards: this.communityCards,
