@@ -4,6 +4,7 @@ const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
+const os = require('os');
 const PokerGame = require('./game');
 
 const app = express();
@@ -11,6 +12,22 @@ const server = http.createServer(app);
 const io = socketIO(server);
 
 const PORT = process.env.PORT || 3000;
+
+// Get local IP address
+function getLocalIP() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      // Skip internal and non-IPv4 addresses
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
+const LOCAL_IP = getLocalIP();
 
 // Initialize game
 const game = new PokerGame();
@@ -32,6 +49,16 @@ app.post('/api/config', (req, res) => {
 
 app.get('/api/game-state', (req, res) => {
   res.json(game.getGameState());
+});
+
+app.get('/api/server-info', (req, res) => {
+  res.json({
+    ip: LOCAL_IP,
+    port: PORT,
+    clientUrl: `http://${LOCAL_IP}:${PORT}/client.html`,
+    displayUrl: `http://${LOCAL_IP}:${PORT}/display.html`,
+    adminUrl: `http://${LOCAL_IP}:${PORT}/admin.html`
+  });
 });
 
 // Socket.IO connection handling
@@ -158,6 +185,67 @@ io.on('connection', (socket) => {
     socket.emit('playerState', playerState);
   });
 
+  // Skip current player (admin action)
+  socket.on('skipPlayer', () => {
+    const result = game.skipCurrentPlayer();
+
+    if (result.success) {
+      io.emit('playerSkipped', { playerName: result.playerName });
+      io.emit('gameState', game.getGameState());
+
+      // Update all players' private state
+      game.players.forEach(player => {
+        io.to(player.socketId).emit('playerState', game.getPlayerState(player.socketId));
+      });
+
+      // Check if hand ended due to skip
+      if (game.gameState === 'showdown') {
+        const results = game.showdown();
+        io.emit('showdown', results);
+
+        setTimeout(() => {
+          io.emit('gameState', game.getGameState());
+
+          if (game.config.autoNextHand && game.players.length >= game.config.minPlayers) {
+            setTimeout(() => {
+              const nextHandResult = game.startGame();
+              if (nextHandResult.success) {
+                io.emit('gameStarted');
+                io.emit('gameState', game.getGameState());
+
+                game.players.forEach(player => {
+                  io.to(player.socketId).emit('playerState', game.getPlayerState(player.socketId));
+                });
+              }
+            }, 3000);
+          }
+        }, 5000);
+      } else if (game.gameState === 'waiting' && game.lastHandResults) {
+        io.emit('showdown', game.lastHandResults);
+
+        setTimeout(() => {
+          io.emit('gameState', game.getGameState());
+
+          if (game.config.autoNextHand && game.players.length >= game.config.minPlayers) {
+            setTimeout(() => {
+              const nextHandResult = game.startGame();
+              if (nextHandResult.success) {
+                io.emit('gameStarted');
+                io.emit('gameState', game.getGameState());
+
+                game.players.forEach(player => {
+                  io.to(player.socketId).emit('playerState', game.getPlayerState(player.socketId));
+                });
+              }
+            }, 3000);
+          }
+        }, 5000);
+      }
+    } else {
+      socket.emit('error', { message: result.message });
+    }
+  });
+
   // Disconnect
   socket.on('disconnect', () => {
     const player = game.players.find(p => p.socketId === socket.id);
@@ -172,7 +260,8 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🃏 Squirrel Hold'em server running on port ${PORT}`);
-  console.log(`📺 Display: http://localhost:${PORT}/display.html`);
-  console.log(`📱 Client: http://localhost:${PORT}/client.html`);
-  console.log(`⚙️  Admin: http://localhost:${PORT}/admin.html`);
+  console.log(`🌐 Server IP: ${LOCAL_IP}`);
+  console.log(`📺 Display: http://${LOCAL_IP}:${PORT}/display.html`);
+  console.log(`📱 Client: http://${LOCAL_IP}:${PORT}/client.html`);
+  console.log(`⚙️  Admin: http://${LOCAL_IP}:${PORT}/admin.html`);
 });

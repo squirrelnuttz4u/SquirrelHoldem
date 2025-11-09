@@ -212,15 +212,28 @@
     <!-- Connection Info -->
     <div class="section">
       <div class="section-title">Connection Information</div>
-      <p><strong>Server Address:</strong> <code id="serverAddress">Loading...</code></p>
-      <p style="margin-top: 10px; font-size: 14px; opacity: 0.8;">
-        Players can connect to this address from their mobile devices.
+      <p><strong>Server IP Address:</strong> <code id="serverAddress">Loading...</code></p>
+      <p style="margin-top: 10px; margin-bottom: 20px;">
+        <strong>Client URL:</strong> <code id="clientUrl">Loading...</code>
       </p>
+
+      <div style="text-align: center; margin-top: 20px;">
+        <div style="background: white; padding: 20px; border-radius: 10px; display: inline-block;">
+          <div style="font-size: 18px; font-weight: bold; color: #333; margin-bottom: 10px;">
+            📱 Scan to Join Game
+          </div>
+          <div id="qrcode" style="display: flex; justify-content: center;"></div>
+          <div style="font-size: 14px; color: #666; margin-top: 10px;">
+            Players scan this QR code to join
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <div id="notification"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
@@ -344,8 +357,30 @@
     // Load initial config
     loadConfig();
 
-    // Set server address
-    document.getElementById('serverAddress').textContent = window.location.host;
+    // Fetch server info and generate QR code
+    fetch('/api/server-info')
+      .then(res => res.json())
+      .then(info => {
+        // Update server address and client URL
+        document.getElementById('serverAddress').textContent = `${info.ip}:${info.port}`;
+        document.getElementById('clientUrl').textContent = info.clientUrl;
+
+        // Generate QR code for client URL
+        new QRCode(document.getElementById('qrcode'), {
+          text: info.clientUrl,
+          width: 200,
+          height: 200,
+          colorDark: '#000000',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      })
+      .catch(err => {
+        console.error('Error loading server info:', err);
+        // Fallback to window.location.host
+        document.getElementById('serverAddress').textContent = window.location.host;
+        document.getElementById('clientUrl').textContent = `${window.location.protocol}//${window.location.host}/client.html`;
+      });
   </script>
 </body>
 </html>

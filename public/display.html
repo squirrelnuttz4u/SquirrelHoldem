@@ -242,12 +242,60 @@
       color: #ffd700;
       margin-top: 15px;
     }
+
+    .admin-link {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.6);
+      text-decoration: none;
+      transition: color 0.3s;
+      z-index: 100;
+    }
+
+    .admin-link:hover {
+      color: rgba(255, 255, 255, 1);
+    }
+
+    .skip-button {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 100;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+      display: none;
+    }
+
+    .skip-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .skip-button:active {
+      transform: translateY(0);
+    }
+
+    .skip-button.visible {
+      display: block;
+    }
   </style>
 </head>
 <body>
   <div class="display-container">
+    <a href="admin.html" class="admin-link">⚙️ Admin</a>
     <div class="logo">🐿️ SQUIRREL HOLD'EM 🃏</div>
     <div class="game-state" id="gameState">WAITING FOR PLAYERS</div>
+    <button class="skip-button" id="skipButton" onclick="skipPlayer()">⏭️ Skip Player</button>
 
     <div class="poker-table-container">
       <div class="poker-table"></div>
@@ -360,6 +408,14 @@
       };
       gameStateEl.textContent = states[gameState.gameState] || gameState.gameState.toUpperCase();
 
+      // Show/hide skip button
+      const skipButton = document.getElementById('skipButton');
+      if (gameState.gameState !== 'waiting' && gameState.gameState !== 'showdown' && gameState.players.length > 0) {
+        skipButton.classList.add('visible');
+      } else {
+        skipButton.classList.remove('visible');
+      }
+
       // Update pot
       potAmountEl.textContent = `$${gameState.pot}`;
 
@@ -411,6 +467,12 @@
 
         playerSeatsEl.appendChild(seat);
       });
+    }
+
+    function skipPlayer() {
+      if (confirm('Skip the current player and fold their hand?')) {
+        socket.emit('skipPlayer');
+      }
     }
 
     function displayShowdown(results) {
@@ -469,6 +531,10 @@
 
     socket.on('handEnded', () => {
       console.log('Hand ended');
+    });
+
+    socket.on('playerSkipped', (data) => {
+      console.log('Player skipped:', data.playerName);
     });
 
     // Close showdown modal on click

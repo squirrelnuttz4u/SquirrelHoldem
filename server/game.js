@@ -581,6 +581,31 @@ class PokerGame {
   updateConfig(newConfig) {
     this.config = { ...this.config, ...newConfig };
   }
+
+  skipCurrentPlayer() {
+    if (this.gameState === 'waiting' || this.gameState === 'showdown') {
+      return { success: false, message: 'No active hand' };
+    }
+
+    const currentPlayer = this.players[this.currentPlayerIndex];
+    if (!currentPlayer) {
+      return { success: false, message: 'No current player' };
+    }
+
+    // Auto-fold the current player
+    currentPlayer.folded = true;
+    currentPlayer.lastAction = 'fold';
+    currentPlayer.lastActionAmount = 0;
+    currentPlayer.stats.currentStreak = 0;
+
+    // Mark them as having acted
+    this.playersActed.add(this.currentPlayerIndex);
+
+    // Move to next player
+    this.nextPlayer();
+
+    return { success: true, playerName: currentPlayer.name };
+  }
 }
 
 module.exports = PokerGame;
