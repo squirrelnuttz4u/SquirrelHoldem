@@ -17,6 +17,7 @@ class PokerGame {
     this.playersActed = new Set(); // Track who has acted this round
     this.playerSessions = new Map(); // sessionId -> player data
     this.disconnectedPlayers = new Map(); // sessionId -> timeout
+    this.lastHandResults = null; // Store results from last completed hand
     this.config = {
       smallBlind: 10,
       bigBlind: 20,
@@ -153,6 +154,7 @@ class PokerGame {
     this.roundBets = {};
     this.playersActed = new Set();
     this.currentHandNumber++;
+    this.lastHandResults = null; // Clear previous hand results
 
     // Reset players and track hands played
     this.players.forEach(player => {
@@ -306,7 +308,7 @@ class PokerGame {
 
     // Only one player left, they win
     if (activePlayers.length === 1) {
-      this.endHand();
+      this.lastHandResults = this.endHand();
       return;
     }
 
@@ -474,13 +476,17 @@ class PokerGame {
 
     this.gameState = 'waiting';
     this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
+    this.lastHandResults = results;
 
     return results;
   }
 
   endHand() {
     const winner = this.players.find(p => !p.folded);
+    let results = [];
+
     if (winner) {
+      const potWon = this.pot;
       winner.chips += this.pot;
 
       // Update statistics for winner (everyone else folded)
@@ -502,10 +508,24 @@ class PokerGame {
           p.stats.currentStreak = 0;
         }
       });
+
+      // Create results object similar to showdown for display consistency
+      results = [{
+        player: {
+          socketId: winner.socketId,
+          name: winner.name,
+          cards: winner.cards
+        },
+        handName: 'Winner (all others folded)',
+        isWinner: true,
+        winAmount: potWon
+      }];
     }
 
     this.gameState = 'waiting';
     this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
+
+    return results;
   }
 
   endGame() {

@@ -122,8 +122,9 @@ io.on('connection', (socket) => {
             }, 3000); // Wait 3 more seconds before starting next hand
           }
         }, 5000);
-      } else if (game.gameState === 'waiting') {
-        io.emit('handEnded');
+      } else if (game.gameState === 'waiting' && game.lastHandResults) {
+        // Hand ended via fold - emit winner info
+        io.emit('showdown', game.lastHandResults);
 
         // Auto-start next hand
         setTimeout(() => {
@@ -144,7 +145,7 @@ io.on('connection', (socket) => {
               }
             }, 3000);
           }
-        }, 3000);
+        }, 5000); // Same delay as showdown for consistency
       }
     } else {
       socket.emit('error', { message: result.message });
