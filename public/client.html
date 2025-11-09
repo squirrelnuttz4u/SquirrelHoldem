@@ -273,28 +273,60 @@
       color: white;
     }
 
+    /* Seat selection table diagram */
+    .seat-selection-container {
+      position: relative;
+      width: 100%;
+      max-width: 500px;
+      height: 350px;
+      margin: 20px auto;
+    }
+
+    .seat-table-visual {
+      position: absolute;
+      width: 60%;
+      height: 70%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(135deg, #0f4c29 0%, #1a6b3f 100%);
+      border-radius: 50%;
+      border: 8px solid #8b4513;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 14px;
+      text-align: center;
+    }
+
     .seat-button {
-      padding: 15px;
+      position: absolute;
+      padding: 10px 15px;
       border: 2px solid rgba(255, 255, 255, 0.3);
       border-radius: 10px;
       background: rgba(255, 255, 255, 0.1);
       color: white;
-      font-size: 16px;
+      font-size: 14px;
+      font-weight: bold;
       cursor: pointer;
       transition: all 0.3s ease;
-      position: relative;
+      transform: translate(-50%, -50%);
+      min-width: 70px;
+      text-align: center;
     }
 
     .seat-button:hover {
       background: rgba(255, 255, 255, 0.2);
       border-color: rgba(255, 255, 255, 0.5);
-      transform: scale(1.05);
+      transform: translate(-50%, -50%) scale(1.1);
     }
 
     .seat-button.selected {
       background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
       border-color: #2ecc71;
-      font-weight: bold;
+      box-shadow: 0 0 15px rgba(46, 204, 113, 0.6);
     }
 
     .seat-button.occupied {
@@ -305,7 +337,7 @@
     }
 
     .seat-button.occupied:hover {
-      transform: none;
+      transform: translate(-50%, -50%);
     }
   </style>
 </head>
@@ -320,11 +352,16 @@
 
         <div style="margin-top: 20px;">
           <label>Select Your Seat</label>
-          <div id="seatSelection" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px;">
-            <!-- Seats will be populated here -->
+          <div class="seat-selection-container">
+            <div class="seat-table-visual">
+              🃏 Poker Table 🃏
+            </div>
+            <div id="seatSelection">
+              <!-- Seats will be positioned around the table -->
+            </div>
           </div>
-          <div style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.7);">
-            Choose a seat that matches where you're sitting in real life
+          <div style="margin-top: 10px; font-size: 14px; color: rgba(255,255,255,0.7); text-align: center;">
+            Choose a seat that matches where you're sitting around the table
           </div>
         </div>
 
@@ -502,6 +539,19 @@
     // Load session from localStorage
     const STORAGE_KEY = 'squirrelHoldemSession';
 
+    // Helper function to calculate seat position around the table
+    function getSeatPosition(seatIndex, maxSeats) {
+      // Position seats around an ellipse (matching display positioning)
+      const angle = (seatIndex / maxSeats) * 2 * Math.PI - Math.PI / 2; // Start at top
+      const radiusX = 45; // Horizontal radius (%)
+      const radiusY = 42; // Vertical radius (%)
+
+      const x = 50 + radiusX * Math.cos(angle);
+      const y = 50 + radiusY * Math.sin(angle);
+
+      return { x, y };
+    }
+
     // Update seat selection display
     function updateSeatSelection(availableSeats, maxSeats = 10) {
       const seatSelectionEl = document.getElementById('seatSelection');
@@ -512,6 +562,11 @@
         button.className = 'seat-button';
         button.textContent = `Seat ${i + 1}`;
         button.type = 'button';
+
+        // Position the button around the table
+        const position = getSeatPosition(i, maxSeats);
+        button.style.left = `${position.x}%`;
+        button.style.top = `${position.y}%`;
 
         if (!availableSeats.includes(i)) {
           button.classList.add('occupied');
