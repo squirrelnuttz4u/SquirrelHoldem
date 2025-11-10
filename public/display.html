@@ -958,6 +958,34 @@
       console.log('Player skipped:', data.playerName);
     });
 
+    socket.on('gameOver', (data) => {
+      playSound('win');
+      // Use showdown modal to display game over
+      showdownResultsEl.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+          <div style="font-size: 72px; margin-bottom: 20px;">🏆</div>
+          <div style="font-size: 48px; font-weight: bold; color: #ffd700; margin-bottom: 20px;">
+            GAME OVER!
+          </div>
+          <div style="font-size: 36px; margin-bottom: 10px;">
+            ${data.winner.name} WINS!
+          </div>
+          <div style="font-size: 24px; color: rgba(255,255,255,0.8);">
+            Final Chips: $${data.winner.chips}
+          </div>
+          <div style="font-size: 18px; margin-top: 30px; color: rgba(255,255,255,0.6);">
+            Click "New Game" on the admin panel to start a new game
+          </div>
+        </div>
+      `;
+      showdownModal.style.display = 'block';
+    });
+
+    socket.on('gameReset', () => {
+      // Hide showdown/game over modal
+      showdownModal.style.display = 'none';
+    });
+
     // Close showdown modal on click
     showdownModal.addEventListener('click', () => {
       showdownModal.style.display = 'none';

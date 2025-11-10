@@ -919,6 +919,18 @@
       showNotification('Hand ended', 'info');
     });
 
+    socket.on('gameOver', (data) => {
+      if (data.winner.socketId === mySocketId || data.winner.sessionId === mySessionId) {
+        showNotification(`🏆 YOU WIN! 🏆 Game Over!`, 'success');
+      } else {
+        showNotification(`Game Over! ${data.winner.name} wins!`, 'info');
+      }
+    });
+
+    socket.on('gameReset', () => {
+      showNotification('New game started! Your chips have been reset.', 'success');
+    });
+
     // Enter key to join
     document.getElementById('playerName').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') joinGame();

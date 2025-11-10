@@ -225,8 +225,8 @@
         <button class="button" onclick="window.open('client.html', '_blank')">
           Open Client
         </button>
-        <button class="button button-danger" onclick="if(confirm('Reset game?')) location.reload()">
-          Reset Game
+        <button class="button button-danger" onclick="newGame()">
+          New Game (Reset All Players)
         </button>
       </div>
     </div>
@@ -307,6 +307,13 @@
 
     function startGame() {
       socket.emit('startGame');
+    }
+
+    function newGame() {
+      if (confirm('Start a new game? This will reset all players\' chips to the starting amount.')) {
+        socket.emit('newGame');
+        showNotification('New game started! All players reset.', 'success');
+      }
     }
 
     function showNotification(message, type = 'info') {

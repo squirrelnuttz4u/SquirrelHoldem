@@ -130,6 +130,20 @@ io.on('connection', (socket) => {
     }
   });
 
+  // New game - reset everything including chips
+  socket.on('newGame', () => {
+    const result = game.newGame();
+    if (result.success) {
+      io.emit('gameReset');
+      io.emit('gameState', game.getGameState());
+
+      // Update all players' state
+      game.players.forEach(player => {
+        io.to(player.socketId).emit('playerState', game.getPlayerState(player.socketId));
+      });
+    }
+  });
+
   // Player actions
   socket.on('playerAction', ({ action, amount }) => {
     const result = game.playerAction(socket.id, action, amount);
@@ -154,7 +168,14 @@ io.on('connection', (socket) => {
           // Start next hand automatically if enabled and enough players
           if (game.config.autoNextHand && game.players.length >= game.config.minPlayers) {
             setTimeout(() => {
-              startGameAndNotify();
+              const nextResult = startGameAndNotify();
+              // Check if game is over (only 1 player with chips)
+              if (nextResult.gameOver) {
+                io.emit('gameOver', {
+                  winner: nextResult.winner,
+                  message: `${nextResult.winner.name} wins the game!`
+                });
+              }
             }, 3000); // Wait 3 more seconds before starting next hand
           }
         }, 5000);
@@ -177,6 +198,12 @@ io.on('connection', (socket) => {
                 // Send private cards to each player
                 game.players.forEach(player => {
                   io.to(player.socketId).emit('playerState', game.getPlayerState(player.socketId));
+                });
+              } else if (nextHandResult.gameOver) {
+                // Check if game is over (only 1 player with chips)
+                io.emit('gameOver', {
+                  winner: nextHandResult.winner,
+                  message: `${nextHandResult.winner.name} wins the game!`
                 });
               }
             }, 3000);

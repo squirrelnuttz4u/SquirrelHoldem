@@ -55,6 +55,50 @@ class PokerGame {
     return available;
   }
 
+  newGame() {
+    // Reset all players' chips to starting amount
+    this.players.forEach(player => {
+      player.chips = this.config.startingChips;
+      player.cards = [];
+      player.bet = 0;
+      player.folded = false;
+      player.allIn = false;
+      player.active = true;
+      player.lastAction = null;
+      player.lastActionAmount = 0;
+      player.stats = {
+        handsPlayed: 0,
+        handsWon: 0,
+        biggestPot: 0,
+        currentStreak: 0,
+        bestStreak: 0
+      };
+    });
+
+    // Reset game state
+    this.communityCards = [];
+    this.pot = 0;
+    this.currentBet = 0;
+    this.dealerIndex = 0;
+    this.currentPlayerIndex = 0;
+    this.gameState = 'waiting';
+    this.lastAggressorIndex = -1;
+    this.playersActed = new Set();
+    this.lastHandResults = null;
+    this.currentHandNumber = 0;
+    this.blindTimerStart = null;
+    this.activePlayers = this.players.length;
+    this.paused = false;
+    this.pausedAt = null;
+    this.totalPausedTime = 0;
+
+    // Reset blinds to initial values
+    this.config.smallBlind = 1;
+    this.config.bigBlind = 2;
+
+    return { success: true };
+  }
+
   addPlayer(socketId, name, sessionId = null, seatPosition = null) {
     // Check if reconnecting with existing session
     if (sessionId && this.playerSessions.has(sessionId)) {
@@ -194,6 +238,22 @@ class PokerGame {
     // Initialize active players count if not set
     if (this.activePlayers === 0) {
       this.activePlayers = this.players.filter(p => p.chips > 0).length;
+    }
+
+    // Check if only one player has chips - game is over
+    const playersWithChips = this.players.filter(p => p.chips > 0);
+    if (playersWithChips.length === 1) {
+      this.gameState = 'gameover';
+      return {
+        success: false,
+        message: 'Game Over',
+        gameOver: true,
+        winner: playersWithChips[0]
+      };
+    }
+
+    if (playersWithChips.length === 0) {
+      return { success: false, message: 'All players are out of chips' };
     }
 
     // Check for timer expiration and double blinds if needed
@@ -432,7 +492,7 @@ class PokerGame {
   }
 
   nextPlayer() {
-    const activePlayers = this.players.filter(p => !p.folded && !p.allIn);
+    const activePlayers = this.players.filter(p => !p.folded && !p.allIn && p.chips > 0);
 
     // Only one player left, they win
     if (activePlayers.length === 1) {
@@ -460,13 +520,13 @@ class PokerGame {
       return;
     }
 
-    // Find next active player
+    // Find next active player (skip broke players)
     let nextIndex = (this.currentPlayerIndex + 1) % this.players.length;
     let checked = 0;
 
     while (checked < this.players.length) {
       const nextPlayer = this.players[nextIndex];
-      if (!nextPlayer.folded && !nextPlayer.allIn) {
+      if (!nextPlayer.folded && !nextPlayer.allIn && nextPlayer.chips > 0) {
         this.currentPlayerIndex = nextIndex;
         return;
       }
@@ -489,9 +549,9 @@ class PokerGame {
 
     // Reset tracking for new betting round
     this.playersActed = new Set();
-    // Mark folded and all-in players as "acted" since they can't act
+    // Mark folded, all-in, and broke players as "acted" since they can't act
     this.players.forEach((p, idx) => {
-      if (p.folded || p.allIn) {
+      if (p.folded || p.allIn || p.chips === 0) {
         this.playersActed.add(idx);
       }
     });
